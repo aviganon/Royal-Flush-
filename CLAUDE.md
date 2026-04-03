@@ -191,4 +191,49 @@ npx tsc --noEmit
 
 ---
 
-**סיכום ל-Claude:** הרץ `npm install`, הגדר `.env.local`, הגדר Firebase Auth + Firestore + פרוס rules, הרץ `npm run dev`, ועבור על סעיף 6. אם משהו נכשל — השווה לטבלת כשלים בסעיף 8.
+## 10. סנכרון קבצים: מקומי, GitHub ו-Google Cloud
+
+**עקרון:** מקור האמת לקוד הוא **Git** (ברירת מחדל: ענף `main` ב-[GitHub](https://github.com/aviganon/Royal-Flush-)). לא מסתמכים על העתקת תיקיות ידנית בין מחשב ל-Cloud — רק `git pull` / `git push`.
+
+### לוודא שהכל מסונכן לפני עבודה
+
+```bash
+cd /path/to/ROYAL-FLUSH
+git fetch origin
+git status                    # צריך להיות "clean" או רק שינויים מכוונים
+git log HEAD..origin/main     # אם יש שורות — יש קומיטים ב-GitHub שלא אצלך
+git pull origin main          # משך את העדכונים לפני שמתחילים לערוך
+```
+
+לפני דחיפה:
+
+```bash
+git status
+git diff                      # בדיקה מה השתנה
+git push origin main
+```
+
+אם GitHub דוחה push כי יש היסטוריה שונה: **אל תריצו** `git push --force` בלי הבנה. עדיף `git pull --rebase origin main` (או merge), לפתור קונפליקטים, ואז `git push`.
+
+### Google Cloud Shell / VM / Cloud Build
+
+- **אותו ריפו:** `git clone https://github.com/aviganon/Royal-Flush-.git` (או SSH), עבודה בתוך התיקייה, `commit` + `push` חזרה ל-GitHub.
+- **לא לערוך בשני מקומים בלי משיכה:** אם ערכת ב-Cursor וב-Cloud — תמיד `pull` במקום השני לפני המשך עבודה.
+- **פריסה (Deploy):** Cloud Run / Build לרוב עושים `git clone` מהריפו או trigger על push — הקוד ב-GitHub הוא מה שנבנה; שינויים רק ב-VM בלי commit **לא** מגונים על GitHub ונעלמים אם המכונה נמחקת.
+
+### איך לא לדרוס בטעות את מה שב-GitHub
+
+| עשה | אל תעשה |
+|-----|---------|
+| `git pull` לפני עבודה ארוכה | להעתיק קבצים מעל התיקייה בלי git |
+| `git push` אחרי commit ברור | `git push --force` ל-`main` (מוחק היסטוריה אצל אחרים) |
+| לבדוק `git log` / `git diff` לפני push | לערוך ישירות ב-GitHub Editor ואז לשכוח למשוך למקומי |
+| ענפי feature (`git checkout -b feature/...`) לשינויים גדולים | כמה ימים של שינויים בלי commit |
+
+### אופציה מתקדמת ב-GitHub
+
+ב-**Settings → Branches** אפשר להפעיל **Branch protection** על `main` (למשל: חובה PR, איסור force push). מפחית סיכון לדריסה קולקטיבית.
+
+---
+
+**סיכום ל-Claude:** הרץ `npm install`, הגדר `.env.local`, הגדר Firebase Auth + Firestore + פרוס rules, הרץ `npm run dev`, ועבור על סעיף 6. לפני/אחרי עבודה ממחשב אחר או Cloud — סעיף 10. אם משהו נכשל — השווה לטבלת כשלים בסעיף 8.
