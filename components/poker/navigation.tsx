@@ -142,7 +142,7 @@ export function Navigation({
             >
               <Wallet className="w-4 h-4 text-gold" />
               <span className="text-sm font-semibold text-gold font-[family-name:var(--font-orbitron)]">
-                ${walletBalance.toLocaleString()}
+                {walletBalance.toLocaleString()} ✦
               </span>
             </motion.div>
 
@@ -228,7 +228,7 @@ export function Navigation({
             <div className="flex items-center gap-2 text-gold">
               <Wallet className="w-4 h-4" />
               <span className="font-semibold font-[family-name:var(--font-orbitron)]">
-                ${walletBalance.toLocaleString()}
+                {walletBalance.toLocaleString()} ✦
               </span>
             </div>
             <div className="flex gap-2">
