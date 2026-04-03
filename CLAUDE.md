@@ -109,6 +109,8 @@ FIREBASE_SERVICE_ACCOUNT_JSON=<JSON מלא>
 NEXT_PUBLIC_APP_URL=https://royal-flush-poker.vercel.app
 NEXT_PUBLIC_POKER_SOCKET_URL=https://royal-flush-production-17d4.up.railway.app
 POKER_SERVER_SECRET=rf_secret_161ac59e912e7cef00861a2b30c399b6
+NEXT_PUBLIC_ADMIN_UID=<Firebase UID של הבעלים>
+ADMIN_UID=<אותו UID — לצד השרת>
 ```
 
 ### Railway (Socket Server)
@@ -196,6 +198,18 @@ git push
 | **Railway Dashboard** | https://railway.com/project/863c3b44-7601-494b-ab40-7e4fa0526bff |
 | **Firebase Console** | https://console.firebase.google.com/project/royal-flush-32cbb |
 | **GitHub Repo** | https://github.com/aviganon/Royal-Flush- |
+
+---
+
+## 👑 פאנל בעלים (Admin)
+
+| נושא | פרטים |
+|------|--------|
+| **הפעלה** | הגדר `NEXT_PUBLIC_ADMIN_UID` + `ADMIN_UID` ב-Vercel — אותו Firebase UID של הבעלים |
+| **גישה** | כפתור "פאנל בעלים" מופיע בניווט רק לבעלים |
+| **יכולות** | יצירת משתמש, עריכת שם/סיסמה, כוונון צ'יפים (קבע/הוסף/הפחת), חסימה/שחרור, מחיקה |
+| **API** | `GET/POST /api/admin/users` · `PATCH/DELETE /api/admin/users/[uid]` |
+| **אבטחה** | כל route מאמת idToken + בודק שה-UID === `ADMIN_UID` |
 
 ---
 

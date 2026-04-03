@@ -12,6 +12,7 @@ import {
   Spade,
   Gamepad2,
   ChevronDown,
+  Crown,
 } from "lucide-react";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
@@ -23,6 +24,7 @@ interface NavigationProps {
   onLogout?: () => void;
   onOpenGameSelector?: () => void;
   selectedGameType?: string;
+  isAdmin?: boolean;
 }
 
 const gameTypeNames: Record<string, string> = {
@@ -41,6 +43,7 @@ export function Navigation({
   onLogout,
   onOpenGameSelector,
   selectedGameType = "texas-holdem",
+  isAdmin = false,
 }: NavigationProps) {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
@@ -49,6 +52,7 @@ export function Navigation({
     { id: "table", label: "שולחן פוקר", icon: Spade },
     { id: "wallet", label: "ארנק", icon: Wallet },
     { id: "leaderboard", label: "טבלת מובילים", icon: Trophy },
+    ...(isAdmin ? [{ id: "admin", label: "פאנל בעלים", icon: Crown }] : []),
   ];
 
   return (

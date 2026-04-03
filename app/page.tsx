@@ -14,6 +14,7 @@ import {
   GameTypeSelector,
   type GameVariant,
 } from "@/components/poker/game-type-selector";
+import { AdminPanel } from "@/components/poker/admin-panel";
 import { useFirebaseAuth } from "@/components/providers/firebase-auth-provider";
 import { useWalletTransactions } from "@/hooks/use-wallet-transactions";
 import { Loader2 } from "lucide-react";
@@ -28,6 +29,8 @@ function socketGameTypeFromVariant(v: GameVariant): "holdem" | "omaha" {
 export default function PokerApp() {
   const { configured, loading, user, profile, getIdToken, logout } =
     useFirebaseAuth();
+  const isAdmin =
+    !!user && !!process.env.NEXT_PUBLIC_ADMIN_UID && user.uid === process.env.NEXT_PUBLIC_ADMIN_UID;
   const [currentView, setCurrentView] = useState("lobby");
   const [selectedGameType, setSelectedGameType] =
     useState<GameVariant>("texas-holdem");
@@ -179,6 +182,7 @@ export default function PokerApp() {
         onLogout={handleLogout}
         onOpenGameSelector={() => setShowGameSelector(true)}
         selectedGameType={selectedGameType}
+        isAdmin={isAdmin}
       />
 
       <main className="relative z-10">
@@ -248,6 +252,21 @@ export default function PokerApp() {
                 currentUserId={user.uid}
                 currentChips={chipBalance}
                 currentDisplayName={displayName}
+              />
+            </motion.div>
+          )}
+
+          {currentView === "admin" && isAdmin && (
+            <motion.div
+              key="admin"
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -20 }}
+              transition={{ duration: 0.3 }}
+            >
+              <AdminPanel
+                getIdToken={getIdToken}
+                currentAdminUid={user.uid}
               />
             </motion.div>
           )}
