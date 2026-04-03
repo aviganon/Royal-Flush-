@@ -2,6 +2,7 @@ import { createServer } from "node:http";
 import { Server } from "socket.io";
 import { HoldemEngine } from "../lib/poker/holdem-engine";
 import { verifyFirebaseIdToken } from "./firebase-verify";
+import { syncChipsToFirestore } from "./chip-sync";
 
 const PORT = Number(process.env.POKER_SOCKET_PORT) || 4000;
 const CORS_ORIGIN = process.env.POKER_CORS_ORIGIN?.split(",").map((s) => s.trim()) ?? [
@@ -17,17 +18,42 @@ type ClientMeta = {
 
 const rooms = new Map<string, HoldemEngine>();
 
-function getRoom(id: string): HoldemEngine {
-  let r = rooms.get(id);
-  if (!r) {
-    r = new HoldemEngine({
-      smallBlind: 1,
-      bigBlind: 2,
-      maxSeats: 9,
-      turnSeconds: 30,
-    });
-    rooms.set(id, r);
-  }
+type TableVariant = "holdem" | "omaha";
+
+function getRoom(
+  id: string,
+  initial?: { smallBlind: number; bigBlind: number; variant?: TableVariant },
+): HoldemEngine {
+  const existing = rooms.get(id);
+  if (existing) return existing;
+
+  let sb = initial?.smallBlind ?? 1;
+  let bb = initial?.bigBlind ?? 2;
+  sb = Math.max(1, Math.min(250, Math.floor(sb)));
+  bb = Math.max(sb + 1, Math.min(500, Math.floor(bb)));
+
+  const variant: TableVariant = initial?.variant === "omaha" ? "omaha" : "holdem";
+
+  const r = new HoldemEngine({
+    smallBlind: sb,
+    bigBlind: bb,
+    maxSeats: 9,
+    turnSeconds: 30,
+    variant,
+    onHandSettled: ({ handNumber, results }) => {
+      void syncChipsToFirestore(
+        id,
+        handNumber,
+        results.map((x) => ({
+          uid: x.id,
+          chips: x.chips,
+          delta: x.delta,
+          won: x.won,
+        })),
+      );
+    },
+  });
+  rooms.set(id, r);
   return r;
 }
 
@@ -49,6 +75,35 @@ const io = new Server(httpServer, {
   cors: { origin: CORS_ORIGIN, methods: ["GET", "POST"] },
 });
 
+/** רק /rooms — לא לסגור תשובה לבקשות אחרות (socket.io) */
+httpServer.prependListener("request", (req, res) => {
+  if (req.method !== "GET") return;
+  let pathname = "";
+  try {
+    pathname = new URL(req.url ?? "/", "http://127.0.0.1").pathname;
+  } catch {
+    return;
+  }
+  if (pathname !== "/rooms") return;
+
+  const data = Array.from(rooms.entries()).map(([roomId, engine]) => ({
+    id: roomId,
+    gameType: engine.config.variant === "omaha" ? "omaha" : "holdem",
+    playerCount: engine.seats.filter(Boolean).length,
+    maxSeats: engine.seats.length,
+    handNumber: engine.handNumber,
+    pot: engine.pot,
+    handFinished: engine.handFinished,
+    smallBlind: engine.config.smallBlind,
+    bigBlind: engine.config.bigBlind,
+  }));
+  res.writeHead(200, {
+    "Content-Type": "application/json; charset=utf-8",
+    "Access-Control-Allow-Origin": "*",
+  });
+  res.end(JSON.stringify({ rooms: data }));
+});
+
 io.on("connection", (socket) => {
   socket.on(
     "join",
@@ -60,6 +115,9 @@ io.on("connection", (socket) => {
         buyIn?: number;
         avatar?: string;
         idToken?: string;
+        smallBlind?: number;
+        bigBlind?: number;
+        gameType?: "holdem" | "omaha";
       },
       ack?: (r: { ok: boolean; error?: string }) => void,
     ) => {
@@ -85,6 +143,57 @@ io.on("connection", (socket) => {
     },
   );
 
+  socket.on(
+    "rebuy",
+    async (
+      payload: { idToken: string },
+      ack?: (r: { ok: boolean; error?: string; chips?: number }) => void,
+    ) => {
+      const meta = socket.data as ClientMeta;
+      if (!meta?.roomId || !meta?.playerId) {
+        ack?.({ ok: false, error: "לא מחובר לחדר" });
+        return;
+      }
+      const engine = rooms.get(meta.roomId);
+      if (!engine) {
+        ack?.({ ok: false, error: "חדר לא נמצא" });
+        return;
+      }
+      const seat = engine.seats.find((s) => s?.id === meta.playerId);
+      if (!seat) {
+        ack?.({ ok: false, error: "שחקן לא בשולחן" });
+        return;
+      }
+      if (seat.chips >= 100) {
+        ack?.({ ok: false, error: `יש לך ${seat.chips} צ'יפים` });
+        return;
+      }
+      try {
+        const appUrl =
+          process.env.NEXT_PUBLIC_APP_URL?.replace(/\/$/, "") || "http://localhost:3000";
+        const res = await fetch(`${appUrl}/api/poker/rebuy`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${payload.idToken}`,
+          },
+        });
+        const data = (await res.json()) as { ok?: boolean; added?: number; error?: string };
+        if (!res.ok || !data.ok) {
+          ack?.({ ok: false, error: data.error ?? "שגיאת rebuy" });
+          return;
+        }
+        seat.chips += data.added ?? 10000;
+        seat.folded = false;
+        engine.tryStartHand();
+        broadcastRoom(io, meta.roomId);
+        ack?.({ ok: true, chips: seat.chips });
+      } catch (err) {
+        ack?.({ ok: false, error: (err as Error).message });
+      }
+    },
+  );
+
   function finishJoin(
     socket: import("socket.io").Socket,
     io: Server,
@@ -94,6 +203,9 @@ io.on("connection", (socket) => {
       name: string;
       buyIn?: number;
       avatar?: string;
+      smallBlind?: number;
+      bigBlind?: number;
+      gameType?: "holdem" | "omaha";
     },
     roomId: string,
     playerId: string,
@@ -102,7 +214,18 @@ io.on("connection", (socket) => {
     ack?: (r: { ok: boolean; error?: string }) => void,
   ) {
     void payload.roomId;
-    const engine = getRoom(roomId);
+    const roomExists = rooms.has(roomId);
+    const variant: TableVariant = payload.gameType === "omaha" ? "omaha" : "holdem";
+    const engine = getRoom(
+      roomId,
+      roomExists
+        ? undefined
+        : {
+            smallBlind: payload.smallBlind ?? 1,
+            bigBlind: payload.bigBlind ?? 2,
+            variant,
+          },
+    );
     const existing = engine.seats.find((p) => p?.id === playerId);
     if (!existing) {
       const res = engine.addPlayer(playerId, name, buyIn, payload.avatar ?? "🎭");
@@ -173,4 +296,9 @@ setInterval(() => {
 
 httpServer.listen(PORT, () => {
   console.log(`[poker] Socket.IO on :${PORT}`);
+  if (process.env.NODE_ENV === "production" && !process.env.POKER_SERVER_SECRET?.trim()) {
+    console.warn(
+      "[poker] אזהרה: POKER_SERVER_SECRET חסר בייצור — סנכרון צ'יפים ל-Firestore לא יאומת / ייחסם ב-API",
+    );
+  }
 });

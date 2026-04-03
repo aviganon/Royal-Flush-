@@ -2,6 +2,8 @@
 
 פלטפורמת פוקר אונליין (Next.js): לובי, שולחן Texas Hold’em בזמן אמת (Socket.IO), אימות Firebase (Google / Facebook / אימייל), ארנק ו-Firestore, תשלומים עם Stripe.
 
+**אתר ייצור (Vercel):** [https://royal-flush-poker.vercel.app/](https://royal-flush-poker.vercel.app/)
+
 ## התחלה מהירה
 
 ```bash

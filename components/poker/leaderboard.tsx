@@ -1,86 +1,79 @@
 "use client";
 
 import { motion } from "framer-motion";
-import { Trophy, Medal, Crown, TrendingUp, Flame, Target } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import Image from "next/image";
+import { Trophy, Medal, Crown, Loader2, AlertCircle } from "lucide-react";
+import { useEffect, useState } from "react";
 
-const leaderboardData = [
-  {
-    rank: 1,
-    name: "מלך הפוקר",
-    avatar: "👑",
-    earnings: 125000,
-    wins: 342,
-    winRate: 68,
-    streak: 12,
-  },
-  {
-    rank: 2,
-    name: "אלוף האומהה",
-    avatar: "🎭",
-    earnings: 98500,
-    wins: 287,
-    winRate: 62,
-    streak: 8,
-  },
-  {
-    rank: 3,
-    name: "שחקן הזהב",
-    avatar: "🌟",
-    earnings: 87200,
-    wins: 256,
-    winRate: 59,
-    streak: 5,
-  },
-  {
-    rank: 4,
-    name: "אתה",
-    avatar: "🎯",
-    earnings: 75800,
-    wins: 198,
-    winRate: 55,
-    streak: 5,
-    isCurrentUser: true,
-  },
-  {
-    rank: 5,
-    name: "כריש הקלפים",
-    avatar: "🦈",
-    earnings: 68400,
-    wins: 189,
-    winRate: 52,
-    streak: 3,
-  },
-  {
-    rank: 6,
-    name: "מאסטר בלאף",
-    avatar: "🎪",
-    earnings: 54200,
-    wins: 167,
-    winRate: 48,
-    streak: 0,
-  },
-  {
-    rank: 7,
-    name: "קינג ג'יימס",
-    avatar: "👔",
-    earnings: 49800,
-    wins: 145,
-    winRate: 46,
-    streak: 2,
-  },
-  {
-    rank: 8,
-    name: "נסיכת הלילה",
-    avatar: "🌙",
-    earnings: 42100,
-    wins: 132,
-    winRate: 44,
-    streak: 1,
-  },
-];
+type ApiPlayer = {
+  rank: number;
+  uid: string;
+  displayName: string;
+  photoURL: string | null;
+  chips: number;
+};
 
-export function Leaderboard() {
+function PlayerAvatar({ name, photoURL }: { name: string; photoURL: string | null }) {
+  const initial = name.trim().slice(0, 1) || "?";
+  if (photoURL) {
+    return (
+      <Image
+        src={photoURL}
+        alt=""
+        width={40}
+        height={40}
+        className="rounded-full object-cover border border-border"
+        unoptimized
+      />
+    );
+  }
+  return (
+    <div className="w-10 h-10 rounded-full bg-muted flex items-center justify-center text-sm font-bold text-foreground border border-border">
+      {initial}
+    </div>
+  );
+}
+
+export function Leaderboard({
+  currentUserId,
+  currentChips,
+  currentDisplayName,
+}: {
+  currentUserId: string;
+  currentChips: number;
+  currentDisplayName: string;
+}) {
+  const [players, setPlayers] = useState<ApiPlayer[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      setLoading(true);
+      setError(null);
+      try {
+        const res = await fetch("/api/leaderboard", { cache: "no-store" });
+        const json = (await res.json()) as { players?: ApiPlayer[]; error?: string };
+        if (!res.ok) {
+          throw new Error(json.error ?? "טעינה נכשלה");
+        }
+        const list = Array.isArray(json.players) ? json.players : [];
+        if (!cancelled) setPlayers(list);
+      } catch (e) {
+        if (!cancelled) {
+          setError((e as Error).message);
+          setPlayers([]);
+        }
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
   const getRankIcon = (rank: number) => {
     switch (rank) {
       case 1:
@@ -91,9 +84,7 @@ export function Leaderboard() {
         return <Medal className="w-6 h-6 text-amber-600" />;
       default:
         return (
-          <span className="text-lg font-bold text-muted-foreground">
-            #{rank}
-          </span>
+          <span className="text-lg font-bold text-muted-foreground">#{rank}</span>
         );
     }
   };
@@ -112,205 +103,182 @@ export function Leaderboard() {
     }
   };
 
+  const top3 =
+    players.length >= 3
+      ? [players[1]!, players[0]!, players[2]!]
+      : players.length === 2
+        ? [players[1]!, players[0]!]
+        : players.length === 1
+          ? [players[0]!]
+          : [];
+
+  const myRow = players.find((p) => p.uid === currentUserId);
+
   return (
     <div className="min-h-screen pt-20 lg:pt-24 pb-8 px-4">
       <div className="max-w-4xl mx-auto">
-        {/* Header */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           className="mb-8"
         >
           <h1 className="text-3xl lg:text-4xl font-bold text-foreground font-[family-name:var(--font-orbitron)] mb-2">
-            טבלת{" "}
-            <span className="text-gold animate-neon-pulse">המובילים</span>
+            טבלת <span className="text-gold animate-neon-pulse">המובילים</span>
           </h1>
-          <p className="text-muted-foreground">השחקנים הטובים ביותר בפלטפורמה</p>
+          <p className="text-muted-foreground">
+            דירוג לפי צ&apos;יפים ב-Firestore (עד 20 שחקנים)
+          </p>
         </motion.div>
 
-        {/* Filter Buttons */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.1 }}
-          className="flex gap-2 mb-8 overflow-x-auto pb-2"
-        >
-          {["כללי", "השבוע", "החודש", "Hold'em", "Omaha"].map((filter, idx) => (
-            <Button
-              key={filter}
-              variant={idx === 0 ? "default" : "outline"}
-              className={
-                idx === 0
-                  ? "bg-gold text-charcoal hover:bg-gold-light whitespace-nowrap"
-                  : "border-border hover:border-gold/50 whitespace-nowrap"
-              }
-            >
-              {filter}
-            </Button>
-          ))}
-        </motion.div>
+        {loading && (
+          <div className="flex justify-center py-20">
+            <Loader2 className="w-10 h-10 animate-spin text-gold" />
+          </div>
+        )}
 
-        {/* Top 3 Podium */}
-        <motion.div
-          initial={{ opacity: 0, scale: 0.9 }}
-          animate={{ opacity: 1, scale: 1 }}
-          transition={{ delay: 0.2 }}
-          className="grid grid-cols-3 gap-4 mb-8"
-        >
-          {[
-            leaderboardData[1],
-            leaderboardData[0],
-            leaderboardData[2],
-          ].map((player, idx) => (
-            <motion.div
-              key={player.rank}
-              initial={{ y: 50, opacity: 0 }}
-              animate={{ y: 0, opacity: 1 }}
-              transition={{ delay: 0.3 + idx * 0.1 }}
-              className={`relative p-4 lg:p-6 rounded-2xl glass-effect border text-center ${
-                idx === 1 ? "border-yellow-400/40 -mt-4" : "border-border mt-4"
-              }`}
-              whileHover={{ scale: 1.02, y: -5 }}
-            >
-              {idx === 1 && (
-                <motion.div
-                  className="absolute -top-3 left-1/2 -translate-x-1/2"
-                  animate={{ y: [0, -5, 0] }}
-                  transition={{ duration: 2, repeat: Infinity }}
-                >
-                  <Crown className="w-8 h-8 text-yellow-400" />
-                </motion.div>
-              )}
+        {!loading && error && (
+          <div className="flex items-center gap-2 p-4 rounded-xl border border-destructive/40 bg-destructive/10 text-sm">
+            <AlertCircle className="w-5 h-5 shrink-0" />
+            {error}
+          </div>
+        )}
 
-              <div className="text-3xl lg:text-4xl mb-2">{player.avatar}</div>
-              <h3 className="font-semibold text-foreground text-sm lg:text-base mb-1 truncate">
-                {player.name}
-              </h3>
-              <motion.p
-                className="text-lg lg:text-xl font-bold text-gold font-[family-name:var(--font-orbitron)]"
-                animate={{ scale: [1, 1.05, 1] }}
-                transition={{ duration: 2, repeat: Infinity, delay: idx * 0.3 }}
+        {!loading && !error && players.length === 0 && (
+          <p className="text-muted-foreground text-center py-16">
+            אין עדיין שחקנים בטבלה. אחרי שמסמכי המשתמשים יכללו שדה chips ב-Firestore הרשימה תתמלא.
+          </p>
+        )}
+
+        {!loading && !error && top3.length > 0 && (
+          <motion.div
+            initial={{ opacity: 0, scale: 0.9 }}
+            animate={{ opacity: 1, scale: 1 }}
+            transition={{ delay: 0.1 }}
+            className={`grid gap-4 mb-8 ${
+              top3.length === 3 ? "grid-cols-3" : top3.length === 2 ? "grid-cols-2" : "grid-cols-1 max-w-xs mx-auto"
+            }`}
+          >
+            {top3.map((player, idx) => (
+              <motion.div
+                key={player.uid}
+                initial={{ y: 50, opacity: 0 }}
+                animate={{ y: 0, opacity: 1 }}
+                transition={{ delay: 0.15 + idx * 0.08 }}
+                className={`relative p-4 lg:p-6 rounded-2xl glass-effect border text-center ${
+                  top3.length === 3 && idx === 1 ? "border-yellow-400/40 -mt-4" : "border-border mt-4"
+                }`}
+                whileHover={{ scale: 1.02, y: -5 }}
               >
-                ${player.earnings.toLocaleString()}
-              </motion.p>
-              <div className="flex items-center justify-center gap-1 mt-2">
-                <Trophy className="w-3 h-3 text-emerald" />
-                <span className="text-xs text-emerald">{player.wins} wins</span>
-              </div>
-            </motion.div>
-          ))}
-        </motion.div>
-
-        {/* Full Leaderboard */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.4 }}
-          className="space-y-3"
-        >
-          {leaderboardData.map((player, index) => (
-            <motion.div
-              key={player.rank}
-              initial={{ opacity: 0, x: -20 }}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{ delay: 0.5 + index * 0.05 }}
-              className={`p-4 rounded-xl glass-effect border transition-all ${getRankBg(
-                player.rank,
-                player.isCurrentUser || false
-              )}`}
-              whileHover={{ x: -5, scale: 1.01 }}
-            >
-              <div className="flex items-center gap-4">
-                {/* Rank */}
-                <div className="w-10 h-10 flex items-center justify-center">
-                  {getRankIcon(player.rank)}
+                {top3.length === 3 && idx === 1 && (
+                  <motion.div
+                    className="absolute -top-3 left-1/2 -translate-x-1/2"
+                    animate={{ y: [0, -5, 0] }}
+                    transition={{ duration: 2, repeat: Infinity }}
+                  >
+                    <Crown className="w-8 h-8 text-yellow-400" />
+                  </motion.div>
+                )}
+                <div className="flex justify-center mb-2">
+                  <div className="text-2xl lg:text-3xl w-12 h-12 lg:w-14 lg:h-14 flex items-center justify-center">
+                    <PlayerAvatar name={player.displayName} photoURL={player.photoURL} />
+                  </div>
                 </div>
+                <h3 className="font-semibold text-foreground text-sm lg:text-base mb-1 truncate px-1">
+                  {player.displayName}
+                </h3>
+                <p className="text-lg lg:text-xl font-bold text-gold font-[family-name:var(--font-orbitron)]">
+                  {player.chips.toLocaleString()} צ&apos;יפים
+                </p>
+                <div className="flex items-center justify-center gap-1 mt-2 text-xs text-muted-foreground">
+                  <Trophy className="w-3 h-3" />
+                  מקום #{player.rank}
+                </div>
+              </motion.div>
+            ))}
+          </motion.div>
+        )}
 
-                {/* Avatar & Name */}
-                <div className="flex items-center gap-3 flex-1 min-w-0">
-                  <div className="text-2xl">{player.avatar}</div>
-                  <div className="min-w-0">
-                    <p
-                      className={`font-semibold truncate ${
-                        player.isCurrentUser ? "text-gold" : "text-foreground"
-                      }`}
-                    >
-                      {player.name}
-                      {player.isCurrentUser && (
-                        <span className="text-xs text-muted-foreground mr-2">
-                          (אתה)
-                        </span>
-                      )}
-                    </p>
-                    <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                      <span className="flex items-center gap-1">
-                        <Trophy className="w-3 h-3" />
-                        {player.wins}
-                      </span>
-                      <span>•</span>
-                      <span className="flex items-center gap-1">
-                        <Target className="w-3 h-3" />
-                        {player.winRate}%
-                      </span>
-                      {player.streak > 0 && (
-                        <>
-                          <span>•</span>
-                          <span className="flex items-center gap-1 text-orange-500">
-                            <Flame className="w-3 h-3" />
-                            {player.streak}
-                          </span>
-                        </>
-                      )}
+        {!loading && !error && players.length > 0 && (
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.2 }}
+            className="space-y-3"
+          >
+            {players.map((player, index) => (
+              <motion.div
+                key={player.uid}
+                initial={{ opacity: 0, x: -20 }}
+                animate={{ opacity: 1, x: 0 }}
+                transition={{ delay: 0.05 + index * 0.03 }}
+                className={`p-4 rounded-xl glass-effect border transition-all ${getRankBg(
+                  player.rank,
+                  player.uid === currentUserId,
+                )}`}
+                whileHover={{ x: -5, scale: 1.01 }}
+              >
+                <div className="flex items-center gap-4">
+                  <div className="w-10 h-10 flex items-center justify-center shrink-0">
+                    {getRankIcon(player.rank)}
+                  </div>
+                  <div className="flex items-center gap-3 flex-1 min-w-0">
+                    <PlayerAvatar name={player.displayName} photoURL={player.photoURL} />
+                    <div className="min-w-0">
+                      <p
+                        className={`font-semibold truncate ${
+                          player.uid === currentUserId ? "text-gold" : "text-foreground"
+                        }`}
+                      >
+                        {player.displayName}
+                        {player.uid === currentUserId && (
+                          <span className="text-xs text-muted-foreground mr-2">(אתה)</span>
+                        )}
+                      </p>
                     </div>
                   </div>
-                </div>
-
-                {/* Earnings */}
-                <div className="text-left">
-                  <p
-                    className={`text-lg font-bold font-[family-name:var(--font-orbitron)] ${
-                      player.rank <= 3 ? "text-gold" : "text-foreground"
-                    }`}
-                  >
-                    ${player.earnings.toLocaleString()}
-                  </p>
-                  <div className="flex items-center gap-1 text-xs text-emerald">
-                    <TrendingUp className="w-3 h-3" />
-                    <span>+12%</span>
+                  <div className="text-left shrink-0">
+                    <p
+                      className={`text-lg font-bold font-[family-name:var(--font-orbitron)] ${
+                        player.rank <= 3 ? "text-gold" : "text-foreground"
+                      }`}
+                    >
+                      {player.chips.toLocaleString()}
+                    </p>
+                    <p className="text-xs text-muted-foreground">צ&apos;יפים</p>
                   </div>
                 </div>
-              </div>
-            </motion.div>
-          ))}
-        </motion.div>
+              </motion.div>
+            ))}
+          </motion.div>
+        )}
 
-        {/* Your Position Card */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.8 }}
-          className="mt-8 p-6 rounded-2xl glass-effect border border-gold/30"
-        >
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm text-muted-foreground mb-1">
-                המיקום שלך בטבלה
-              </p>
-              <div className="flex items-center gap-3">
-                <span className="text-3xl font-bold text-gold font-[family-name:var(--font-orbitron)]">
-                  #4
-                </span>
-                <div className="flex items-center gap-1 text-emerald">
-                  <TrendingUp className="w-4 h-4" />
-                  <span className="text-sm">עלית 2 מקומות השבוע</span>
-                </div>
+        {!loading && !error && (
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.25 }}
+            className="mt-8 p-6 rounded-2xl glass-effect border border-gold/30"
+          >
+            <p className="text-sm text-muted-foreground mb-1">החשבון שלך</p>
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+              <div>
+                <p className="font-medium text-foreground">{currentDisplayName}</p>
+                <p className="text-2xl font-bold text-gold font-[family-name:var(--font-orbitron)] mt-1">
+                  {currentChips.toLocaleString()} צ&apos;יפים
+                </p>
+                {myRow ? (
+                  <p className="text-sm text-muted-foreground mt-2">
+                    מקום בטבלה: <span className="text-gold font-semibold">#{myRow.rank}</span>
+                  </p>
+                ) : (
+                  <p className="text-sm text-muted-foreground mt-2">
+                    לא מופיעים בטופ 20 — הדירוג מבוסס על שדה chips ב-Firestore
+                  </p>
+                )}
               </div>
             </div>
-            <Button className="bg-gold text-charcoal hover:bg-gold-light">
-              צפה בסטטיסטיקות
-            </Button>
-          </div>
-        </motion.div>
+          </motion.div>
+        )}
       </div>
     </div>
   );

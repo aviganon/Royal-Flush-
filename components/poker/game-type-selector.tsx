@@ -19,6 +19,7 @@ import { Button } from "@/components/ui/button";
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
@@ -209,6 +210,10 @@ export function GameTypeSelector({
           <DialogTitle className="text-2xl text-gold font-[family-name:var(--font-orbitron)] text-center">
             בחר סוג משחק
           </DialogTitle>
+          <DialogDescription className="text-center text-muted-foreground">
+            עד שסוגרים חלון זה (×, «ביטול» או «המשך לבחירת שולחן») — הלובי מאחוריו לא ניתן ללחיצה.
+            לשולחן חי מקומית חובה שרת Socket; ראו הסבר בלובי אחרי הסגירה.
+          </DialogDescription>
         </DialogHeader>
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 pt-4">

@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import Stripe from "stripe";
 import { verifyIdTokenFromHeader } from "@/lib/firebase/admin";
+import { getAppBaseUrl } from "@/lib/site";
 
 export const runtime = "nodejs";
 
@@ -29,7 +30,7 @@ export async function POST(request: Request) {
     );
   }
 
-  const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
+  const appUrl = getAppBaseUrl();
   const stripe = new Stripe(secret);
 
   /** צ'יפים במשחק: $1 = 100 צ'יפים (ניתן לשנות) */

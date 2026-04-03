@@ -9,7 +9,7 @@ import { PokerTable } from "@/components/poker/poker-table";
 import { WalletDashboard } from "@/components/poker/wallet-dashboard";
 import { Leaderboard } from "@/components/poker/leaderboard";
 import { LoginScreen } from "@/components/poker/login-screen";
-import { FirebaseSetupPlaceholder } from "@/components/poker/firebase-setup-placeholder";
+import { FirebaseConfigRequired } from "@/components/poker/firebase-config-required";
 import {
   GameTypeSelector,
   type GameVariant,
@@ -17,6 +17,13 @@ import {
 import { useFirebaseAuth } from "@/components/providers/firebase-auth-provider";
 import { useWalletTransactions } from "@/hooks/use-wallet-transactions";
 import { Loader2 } from "lucide-react";
+
+function socketGameTypeFromVariant(v: GameVariant): "holdem" | "omaha" {
+  if (v === "omaha" || v === "omaha-hi-lo" || v === "5-card-omaha") {
+    return "omaha";
+  }
+  return "holdem";
+}
 
 export default function PokerApp() {
   const { configured, loading, user, profile, getIdToken, logout } =
@@ -27,6 +34,12 @@ export default function PokerApp() {
   const [showGameSelector, setShowGameSelector] = useState(false);
   const [roomId, setRoomId] = useState("royal-holdem-1");
   const [tableBuyIn, setTableBuyIn] = useState(2000);
+  const [tableBlinds, setTableBlinds] = useState<{ smallBlind: number; bigBlind: number }>({
+    smallBlind: 1,
+    bigBlind: 2,
+  });
+  /** סוג משחק ל־Socket / מנוע — תמיד מהצטרפות בלובי או מבורר המשחק בכניסה לשולחן מהתפריט */
+  const [tableSocketGameType, setTableSocketGameType] = useState<"holdem" | "omaha">("holdem");
 
   const txRows = useWalletTransactions(user?.uid);
 
@@ -63,16 +76,22 @@ export default function PokerApp() {
   };
 
   const handleJoinTable = (
-    tableId: string,
+    roomIdParam: string,
     gameType?: "holdem" | "omaha",
     buyIn?: number,
+    blinds?: { smallBlind: number; bigBlind: number },
   ) => {
-    if (gameType) {
-      setSelectedGameType(
-        gameType === "holdem" ? "texas-holdem" : "omaha",
-      );
-    }
-    setRoomId(`table-${tableId}`);
+    const engineGt: "holdem" | "omaha" =
+      gameType === "omaha" ? "omaha" : "holdem";
+    setTableSocketGameType(engineGt);
+    setSelectedGameType(engineGt === "omaha" ? "omaha" : "texas-holdem");
+    setRoomId(roomIdParam);
+    setTableBlinds(
+      blinds ?? {
+        smallBlind: 1,
+        bigBlind: 2,
+      },
+    );
     const minBuy = typeof buyIn === "number" && buyIn > 0 ? buyIn : 80;
     const capped = Math.min(
       Math.max(minBuy, 80),
@@ -84,6 +103,7 @@ export default function PokerApp() {
 
   const handleLeaveTable = () => {
     setCurrentView("lobby");
+    setTableBlinds({ smallBlind: 1, bigBlind: 2 });
   };
 
   const handleLogout = () => {
@@ -91,8 +111,15 @@ export default function PokerApp() {
     setCurrentView("lobby");
   };
 
+  const handleMainViewChange = (view: string) => {
+    if (view === "table") {
+      setTableSocketGameType(socketGameTypeFromVariant(selectedGameType));
+    }
+    setCurrentView(view);
+  };
+
   if (!configured) {
-    return <FirebaseSetupPlaceholder />;
+    return <FirebaseConfigRequired />;
   }
 
   if (loading) {
@@ -107,17 +134,6 @@ export default function PokerApp() {
   if (!user) {
     return <LoginScreen />;
   }
-
-  const getTableGameType = (): "holdem" | "omaha" => {
-    if (
-      selectedGameType === "omaha" ||
-      selectedGameType === "omaha-hi-lo" ||
-      selectedGameType === "5-card-omaha"
-    ) {
-      return "omaha";
-    }
-    return "holdem";
-  };
 
   return (
     <div className="min-h-screen bg-background relative overflow-hidden">
@@ -158,7 +174,7 @@ export default function PokerApp() {
 
       <Navigation
         currentView={currentView}
-        onViewChange={setCurrentView}
+        onViewChange={handleMainViewChange}
         walletBalance={chipBalance}
         onLogout={handleLogout}
         onOpenGameSelector={() => setShowGameSelector(true)}
@@ -175,7 +191,10 @@ export default function PokerApp() {
               exit={{ opacity: 0, y: -20 }}
               transition={{ duration: 0.3 }}
             >
-              <GameLobby onJoinTable={handleJoinTable} />
+              <GameLobby
+                onJoinTable={handleJoinTable}
+                onOpenGameSelector={() => setShowGameSelector(true)}
+              />
             </motion.div>
           )}
 
@@ -188,13 +207,14 @@ export default function PokerApp() {
               transition={{ duration: 0.3 }}
             >
               <PokerTable
-                gameType={getTableGameType()}
+                gameType={tableSocketGameType}
                 onLeaveTable={handleLeaveTable}
                 roomId={roomId}
                 playerId={user.uid}
                 playerName={displayName}
                 buyIn={tableBuyIn}
                 getIdToken={getIdToken}
+                tableConfig={tableBlinds}
               />
             </motion.div>
           )}
@@ -224,38 +244,16 @@ export default function PokerApp() {
               exit={{ opacity: 0, x: 20 }}
               transition={{ duration: 0.3 }}
             >
-              <Leaderboard />
+              <Leaderboard
+                currentUserId={user.uid}
+                currentChips={chipBalance}
+                currentDisplayName={displayName}
+              />
             </motion.div>
           )}
         </AnimatePresence>
       </main>
 
-      <div className="fixed inset-0 pointer-events-none overflow-hidden">
-        {[...Array(15)].map((_, i) => (
-          <motion.div
-            key={i}
-            className="absolute w-1 h-1 rounded-full bg-gold/30"
-            initial={{
-              x:
-                Math.random() *
-                (typeof window !== "undefined" ? window.innerWidth : 1000),
-              y:
-                Math.random() *
-                (typeof window !== "undefined" ? window.innerHeight : 800),
-            }}
-            animate={{
-              y: [null, -20, 20],
-              opacity: [0.2, 0.5, 0.2],
-            }}
-            transition={{
-              duration: 3 + Math.random() * 2,
-              repeat: Infinity,
-              delay: Math.random() * 2,
-              ease: "easeInOut",
-            }}
-          />
-        ))}
-      </div>
     </div>
   );
 }

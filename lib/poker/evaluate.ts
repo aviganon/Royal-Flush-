@@ -145,6 +145,24 @@ export function bestHoldemScore(hole: Card[], board: Card[]): HandScore {
   return best!;
 }
 
+/**
+ * Pot-Limit Omaha style: בדיוק 2 קלפים מהיד (4) + 3 מהבורד (5).
+ */
+export function bestOmahaScore(hole: Card[], board: Card[]): HandScore {
+  if (hole.length !== 4 || board.length < 3) return [CAT_HIGH, 0];
+  const b3 = combinations(board, 3);
+  const h2 = combinations(hole, 2);
+  let best: HandScore | null = null;
+  for (const ho of h2) {
+    for (const brd of b3) {
+      const five = [...ho, ...brd];
+      const s = scoreFive(five);
+      if (!best || compareScores(s, best) > 0) best = s;
+    }
+  }
+  return best!;
+}
+
 export function compareHoldemHands(
   holeA: Card[],
   board: Card[],

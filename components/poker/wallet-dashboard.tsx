@@ -5,14 +5,9 @@ import {
   Wallet,
   ArrowUpRight,
   ArrowDownLeft,
-  TrendingUp,
   History,
   CreditCard,
   Shield,
-  ChevronLeft,
-  Trophy,
-  Target,
-  Flame,
 } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
@@ -33,14 +28,22 @@ interface WalletDashboardProps {
   txRows: WalletTxRow[];
 }
 
-const stats = [
-  { label: "משחקים השבוע", value: "47", icon: Target, color: "text-emerald" },
-  { label: "ניצחונות", value: "28", icon: Trophy, color: "text-gold" },
-  { label: "רצף נוכחי", value: "5", icon: Flame, color: "text-orange-500" },
-  { label: "יחס רווח", value: "+15%", icon: TrendingUp, color: "text-emerald" },
-];
-
 const STRIPE_PACKS_USD = [10, 25, 50, 100] as const;
+
+function txLabel(type: string): string {
+  switch (type) {
+    case "deposit":
+      return "הפקדה (Stripe)";
+    case "rebuy":
+      return "טעינת צ'יפים (rebuy)";
+    case "poker_win":
+      return "רווח משולחן";
+    case "poker_loss":
+      return "הפסד משולחן";
+    default:
+      return type;
+  }
+}
 
 export function WalletDashboard({
   balance,
@@ -78,7 +81,9 @@ export function WalletDashboard({
   };
 
   const handleWithdraw = () => {
-    toast.message("משיכות יטופלו בקרוב דרך תמיכה / אימות KYC");
+    toast.message(
+      "משיכה אינה אוטומטית באפליקציה. פנו לתמיכה עם פרטי החשבון וציינו סכום מבוקש.",
+    );
   };
 
   return (
@@ -94,17 +99,15 @@ export function WalletDashboard({
             ארנק <span className="text-gold animate-neon-pulse">דיגיטלי</span>
           </h1>
           <p className="text-muted-foreground">
-            נהל את הכספים שלך בקלות ובבטחון
+            יתרת צ&apos;יפים ופעולות אמיתיות מ-Firestore
           </p>
         </motion.div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* Main Balance Card */}
+        <div className="max-w-3xl mx-auto">
           <motion.div
             initial={{ opacity: 0, scale: 0.95 }}
             animate={{ opacity: 1, scale: 1 }}
             transition={{ delay: 0.1 }}
-            className="lg:col-span-2"
           >
             <div className="relative overflow-hidden rounded-3xl p-6 lg:p-8 glass-effect border border-gold/20">
               {/* Background Glow */}
@@ -135,7 +138,10 @@ export function WalletDashboard({
                   animate={{ scale: 1, opacity: 1 }}
                   transition={{ delay: 0.3, type: "spring" }}
                 >
-                  ${balance.toLocaleString()}
+                  {balance.toLocaleString()}{" "}
+                  <span className="text-2xl lg:text-3xl text-muted-foreground font-normal">
+                    צ&apos;יפים
+                  </span>
                 </motion.div>
 
                 <div className="flex flex-wrap gap-3">
@@ -202,7 +208,7 @@ export function WalletDashboard({
                             יתרת צ&apos;יפים
                           </p>
                           <p className="text-2xl font-bold text-gold font-[family-name:var(--font-orbitron)]">
-                            ${balance.toLocaleString()}
+                            {balance.toLocaleString()} צ&apos;יפים
                           </p>
                         </div>
                         <p className="text-sm text-muted-foreground text-right">
@@ -212,7 +218,7 @@ export function WalletDashboard({
                           className="w-full bg-gold text-charcoal hover:bg-gold-light"
                           onClick={handleWithdraw}
                         >
-                          בקשת משיכה (בקרוב)
+                          הוראות משיכה
                         </Button>
                       </div>
                     </DialogContent>
@@ -220,39 +226,6 @@ export function WalletDashboard({
                 </div>
               </div>
             </div>
-          </motion.div>
-
-          {/* Stats Cards */}
-          <motion.div
-            initial={{ opacity: 0, x: 20 }}
-            animate={{ opacity: 1, x: 0 }}
-            transition={{ delay: 0.2 }}
-            className="space-y-4"
-          >
-            {stats.map((stat, index) => (
-              <motion.div
-                key={stat.label}
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.3 + index * 0.1 }}
-                className="p-4 rounded-2xl glass-effect border border-border hover:border-gold/30 transition-all"
-                whileHover={{ scale: 1.02, x: -5 }}
-              >
-                <div className="flex items-center gap-3">
-                  <div
-                    className={`w-10 h-10 rounded-xl bg-muted flex items-center justify-center ${stat.color}`}
-                  >
-                    <stat.icon className="w-5 h-5" />
-                  </div>
-                  <div>
-                    <p className="text-xs text-muted-foreground">{stat.label}</p>
-                    <p className={`text-xl font-bold ${stat.color}`}>
-                      {stat.value}
-                    </p>
-                  </div>
-                </div>
-              </motion.div>
-            ))}
           </motion.div>
         </div>
 
@@ -270,32 +243,19 @@ export function WalletDashboard({
                 היסטוריית פעולות
               </h2>
             </div>
-            <Button
-              variant="ghost"
-              size="sm"
-              className="text-muted-foreground hover:text-gold"
-            >
-              הצג הכל
-              <ChevronLeft className="w-4 h-4 mr-1" />
-            </Button>
           </div>
 
           <div className="space-y-3">
             {txRows.length === 0 ? (
               <p className="text-muted-foreground text-sm text-center py-8">
-                אין היסטוריית הפקדות עדיין. אחרי רכישה ב-Stripe התנועות יופיעו כאן.
+                אין תנועות עדיין. הפקדות Stripe, rebuy וסנכרון משולחן יופיעו כאן.
               </p>
             ) : (
               txRows.map((tx, index) => {
-                const label =
-                  tx.type === "deposit"
-                    ? "הפקדה (Stripe)"
-                    : tx.type === "win"
-                      ? "זכייה"
-                      : tx.type === "loss"
-                        ? "הפסד"
-                        : tx.type;
-                const isDeposit = tx.type === "deposit";
+                const label = txLabel(tx.type);
+                const isDeposit = tx.type === "deposit" || tx.type === "rebuy";
+                const isLoss = tx.type === "poker_loss" || tx.amount < 0;
+                const signed = tx.amount >= 0 ? `+${tx.amount.toLocaleString()}` : tx.amount.toLocaleString();
                 return (
                   <motion.div
                     key={tx.id}
@@ -309,7 +269,7 @@ export function WalletDashboard({
                       <div className="flex items-center gap-4">
                         <div
                           className={`w-10 h-10 rounded-xl flex items-center justify-center ${
-                            isDeposit ? "bg-gold/20" : "bg-muted"
+                            isDeposit ? "bg-gold/20" : isLoss ? "bg-destructive/15" : "bg-muted"
                           }`}
                         >
                           {isDeposit ? (
@@ -326,12 +286,14 @@ export function WalletDashboard({
                         </div>
                       </div>
                       <motion.span
-                        className="text-lg font-bold font-[family-name:var(--font-orbitron)] text-emerald"
+                        className={`text-lg font-bold font-[family-name:var(--font-orbitron)] ${
+                          isLoss ? "text-destructive" : "text-emerald"
+                        }`}
                         initial={{ scale: 0 }}
                         animate={{ scale: 1 }}
                         transition={{ delay: 0.6 + index * 0.05 }}
                       >
-                        +{tx.amount.toLocaleString()} צ&apos;יפים
+                        {signed} צ&apos;יפים
                       </motion.span>
                     </div>
                   </motion.div>

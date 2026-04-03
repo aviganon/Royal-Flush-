@@ -1,5 +1,5 @@
 import { freshDeck, shuffle } from "./deck";
-import { bestHoldemScore, type HandScore } from "./evaluate";
+import { bestHoldemScore, bestOmahaScore, type HandScore } from "./evaluate";
 import type { Card } from "./types";
 
 export type Street = "preflop" | "flop" | "turn" | "river";
@@ -16,11 +16,27 @@ export interface SeatPlayer {
   seat: number;
 }
 
+export interface HandSettlementResult {
+  id: string;
+  chips: number;
+  delta: number;
+  won: boolean;
+}
+
+export type PokerTableVariant = "holdem" | "omaha";
+
 export interface HoldemConfig {
   smallBlind: number;
   bigBlind: number;
   maxSeats: number;
   turnSeconds: number;
+  /** אומהה: 4 קלפים ביד, שודאון 2 מהיד + 3 מהבורד (מבנה הימורים כמו Hold'em) */
+  variant?: PokerTableVariant;
+  /** נקרא אחרי סיום יד (אחרי חלוקת הפוט), לסנכרון צ'יפים ל-Firestore */
+  onHandSettled?: (payload: {
+    handNumber: number;
+    results: HandSettlementResult[];
+  }) => void;
 }
 
 const DEFAULT_CONFIG: HoldemConfig = {
@@ -28,6 +44,7 @@ const DEFAULT_CONFIG: HoldemConfig = {
   bigBlind: 2,
   maxSeats: 9,
   turnSeconds: 30,
+  variant: "holdem",
 };
 
 function seatWrap(i: number, n: number): number {
@@ -56,11 +73,18 @@ export class HoldemEngine {
   private bigBlindSeatThisHand = -1;
   /** After everyone limps, BB still needs check/raise option */
   private bbPreflopOptionDone = false;
+  /** צ'יפים לכל שחקן מיד אחרי פוסט הבליינדים בתחילת היד (לחישוב דלתה בסיום) */
+  private chipsAtHandStart = new Map<string, number>();
 
   constructor(config: Partial<HoldemConfig> = {}, rng: () => number = Math.random) {
     this.config = { ...DEFAULT_CONFIG, ...config };
+    if (this.config.variant !== "omaha") this.config.variant = "holdem";
     this.seats = Array.from({ length: this.config.maxSeats }, () => null);
     this.rng = rng;
+  }
+
+  private holeCardsPerPlayer(): number {
+    return this.config.variant === "omaha" ? 4 : 2;
   }
 
   private log(msg: string) {
@@ -218,9 +242,12 @@ export class HoldemEngine {
     this.minRaise = this.config.bigBlind;
     this.lastRaiseSize = this.config.bigBlind;
 
+    const nHole = this.holeCardsPerPlayer();
     for (const p of this.seats) {
       if (!p || p.folded) continue;
-      p.hole.push(this.deck.pop()!, this.deck.pop()!);
+      for (let h = 0; h < nHole; h++) {
+        p.hole.push(this.deck.pop()!);
+      }
     }
 
     if (isHu) {
@@ -230,6 +257,27 @@ export class HoldemEngine {
     }
     this.setTimer();
     this.log(`יד #${this.handNumber}`);
+    this.chipsAtHandStart.clear();
+    for (const p of this.seats) {
+      if (!p) continue;
+      this.chipsAtHandStart.set(p.id, p.chips);
+    }
+  }
+
+  private emitHandSettledIfNeeded() {
+    const cb = this.config.onHandSettled;
+    if (!cb || this.chipsAtHandStart.size === 0) return;
+    const results: HandSettlementResult[] = [];
+    for (const p of this.seats) {
+      if (!p) continue;
+      const before = this.chipsAtHandStart.get(p.id);
+      if (before === undefined) continue;
+      const chips = p.chips;
+      const delta = chips - before;
+      results.push({ id: p.id, chips, delta, won: delta > 0 });
+    }
+    this.chipsAtHandStart.clear();
+    if (results.length > 0) cb({ handNumber: this.handNumber, results });
   }
 
   private advanceStreet() {
@@ -398,6 +446,7 @@ export class HoldemEngine {
     this.handFinished = true;
     this.actionSeat = -1;
     this.clearTimer();
+    this.emitHandSettledIfNeeded();
     this.dealer = this.nextSeat(this.dealer);
   }
 
@@ -406,8 +455,12 @@ export class HoldemEngine {
     const alive = this.playersInHand();
     let best: HandScore | null = null;
     const winners: SeatPlayer[] = [];
+    const scoreHand = (pl: SeatPlayer) =>
+      this.config.variant === "omaha"
+        ? bestOmahaScore(pl.hole, this.board)
+        : bestHoldemScore(pl.hole, this.board);
     for (const pl of alive) {
-      const sc = bestHoldemScore(pl.hole, this.board);
+      const sc = scoreHand(pl);
       if (!best || this.cmpScore(sc, best) > 0) {
         best = sc;
         winners.length = 0;
@@ -427,6 +480,7 @@ export class HoldemEngine {
     this.handFinished = true;
     this.actionSeat = -1;
     this.clearTimer();
+    this.emitHandSettledIfNeeded();
     this.dealer = this.nextSeat(this.dealer);
   }
 
@@ -481,7 +535,9 @@ export class HoldemEngine {
     });
     const me = forPlayerId ? this.seats.find((x) => x?.id === forPlayerId) : null;
     const toCall = me ? Math.max(0, this.currentMaxBet - me.streetBet) : 0;
+    const variant: PokerTableVariant = this.config.variant === "omaha" ? "omaha" : "holdem";
     return {
+      gameVariant: variant,
       players,
       board: this.board,
       pot: this.pot,

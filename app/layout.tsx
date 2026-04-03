@@ -3,6 +3,7 @@ import { Orbitron, Inter } from 'next/font/google'
 import { Analytics } from '@vercel/analytics/next'
 import { Toaster } from '@/components/ui/sonner'
 import { FirebaseAuthProvider } from '@/components/providers/firebase-auth-provider'
+import { getAppBaseUrl } from '@/lib/site'
 import './globals.css'
 
 const orbitron = Orbitron({ 
@@ -18,9 +19,9 @@ const inter = Inter({
 });
 
 export const metadata: Metadata = {
+  metadataBase: new URL(getAppBaseUrl()),
   title: 'Royal Flush Poker | Premium Online Gaming',
   description: 'Experience the most advanced online poker platform with stunning visuals and real-time gameplay',
-  generator: 'v0.app',
   icons: {
     icon: [
       {

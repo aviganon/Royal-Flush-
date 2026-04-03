@@ -1,6 +1,11 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
+    /** אידמפוטנטיות Stripe — נכתב רק מ-Admin SDK */
+    match /stripe_webhook_events/{eventId} {
+      allow read, write: if false;
+    }
+
     match /users/{userId} {
       allow read: if request.auth != null && request.auth.uid == userId;
       allow write: if false;

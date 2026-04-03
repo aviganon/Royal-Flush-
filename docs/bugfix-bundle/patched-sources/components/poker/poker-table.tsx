@@ -15,7 +15,6 @@ import {
   Loader2,
 } from "lucide-react";
 import { usePokerSocket } from "@/hooks/use-poker-socket";
-import { getPokerSocketUrl } from "@/lib/poker/socket-url";
 import type { TablePublicView } from "@/lib/poker/holdem-engine";
 import type { Card } from "@/lib/poker/types";
 
@@ -27,7 +26,6 @@ interface PokerTableProps {
   playerName: string;
   buyIn?: number;
   getIdToken?: () => Promise<string | null>;
-  tableConfig?: { smallBlind: number; bigBlind: number };
 }
 
 type SeatedPlayer = Extract<
@@ -67,20 +65,16 @@ export function PokerTable({
   playerName,
   buyIn = 2000,
   getIdToken,
-  tableConfig,
 }: PokerTableProps) {
-  const online = gameType === "holdem" || gameType === "omaha";
-  const { connected, state, sendAction, sendChat, requestRebuy, rebuyPending } =
-    usePokerSocket({
-      roomId,
-      playerId,
-      playerName,
-      buyIn,
-      enabled: online,
-      getIdToken,
-      tableConfig,
-      gameType,
-    });
+  const online = gameType === "holdem";
+  const { connected, state, sendAction, sendChat, sendRebuy } = usePokerSocket({
+    roomId,
+    playerId,
+    playerName,
+    buyIn,
+    enabled: online,
+    getIdToken,
+  });
 
   const [betAmount, setBetAmount] = useState([4]);
   const [isMuted, setIsMuted] = useState(false);
@@ -184,8 +178,22 @@ export function PokerTable({
     );
   };
 
+  if (gameType === "omaha") {
+    return (
+      <div className="min-h-screen pt-20 flex flex-col items-center justify-center gap-4 px-4">
+        <p className="text-center text-muted-foreground max-w-md">
+          אומהה — מנוע הרב-משתתפים כרגע ב-Texas Hold&apos;em בלבד. בחרו שולחן
+          Hold&apos;em בלובי לשחק אונליין מול שחקנים אחרים.
+        </p>
+        <Button variant="outline" onClick={onLeaveTable}>
+          חזרה ללובי
+        </Button>
+      </div>
+    );
+  }
+
   if (!connected && online) {
-    const isLocal =
+    const isLocalhost =
       typeof window !== "undefined" &&
       (window.location.hostname === "localhost" ||
         window.location.hostname === "127.0.0.1");
@@ -193,21 +201,22 @@ export function PokerTable({
       <div className="min-h-screen pt-20 flex flex-col items-center justify-center gap-6 px-4">
         <Loader2 className="w-10 h-10 animate-spin text-gold" />
         <div className="text-center max-w-md">
-          <p className="text-foreground font-semibold mb-2">מתחבר לשרת המשחק…</p>
-          {isLocal ? (
-            <div className="text-sm text-muted-foreground space-y-2 [direction:rtl]">
-              <p>
-                כתובת:{" "}
-                <code className="text-gold break-all">{getPokerSocketUrl()}</code>
+          <p className="text-foreground font-semibold mb-2">
+            מתחבר לשרת המשחק…
+          </p>
+          {isLocalhost ? (
+            <p className="text-muted-foreground text-sm">
+              ודאו ש-<code className="text-gold">npm run dev</code> רץ עם Next.js + Socket
+            </p>
+          ) : (
+            <div className="space-y-2">
+              <p className="text-muted-foreground text-sm">
+                שרת המשחק בזמן אמת אינו פעיל כרגע.
               </p>
-              <p>
-                ודאו ש-<code className="text-gold">npm run dev</code> רץ (Next + Socket)
+              <p className="text-muted-foreground text-xs">
+                למשחק מלא יש להפעיל את שרת ה-Socket.IO — ראו הוראות ב-README
               </p>
             </div>
-          ) : (
-            <p className="text-sm text-muted-foreground [direction:rtl]">
-              שרת המשחק בזמן אמת אינו פעיל כרגע. המשחק זמין מקומית בלבד.
-            </p>
           )}
         </div>
         <Button variant="ghost" onClick={onLeaveTable}>
@@ -269,11 +278,7 @@ export function PokerTable({
           </Button>
           <div className="hidden sm:block h-6 w-px bg-border" />
           <div className="hidden sm:flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-2">
-            <span className="text-sm text-muted-foreground">
-              {state?.gameVariant === "omaha"
-                ? "Pot-Limit Omaha"
-                : "Texas Hold'em"}
-            </span>
+            <span className="text-sm text-muted-foreground">Texas Hold&apos;em</span>
             <span className="text-sm text-gold">
               ${state.smallBlind}/${state.bigBlind}
             </span>
@@ -284,21 +289,6 @@ export function PokerTable({
         </div>
 
         <div className="flex items-center gap-2">
-          {me && me.chips < 100 && getIdToken && (
-            <Button
-              variant="secondary"
-              size="sm"
-              disabled={!connected || rebuyPending}
-              onClick={() => void requestRebuy()}
-              className="text-xs sm:text-sm shrink-0"
-            >
-              {rebuyPending ? (
-                <Loader2 className="w-4 h-4 animate-spin" />
-              ) : (
-                "טעינת צ'יפים"
-              )}
-            </Button>
-          )}
           <Button
             variant="ghost"
             size="icon"
@@ -556,6 +546,14 @@ export function PokerTable({
             </div>
 
             <div className="flex gap-2 w-full sm:w-auto flex-wrap justify-center">
+              {me && me.chips === 0 && (
+                <Button
+                  className="w-full bg-orange-500 text-white hover:bg-orange-600 mb-2"
+                  onClick={() => void sendRebuy(getIdToken ?? (async () => null))}
+                >
+                  🔄 Rebuy — 10,000 צ'יפים חינם
+                </Button>
+              )}
               <Button
                 variant="outline"
                 className="flex-1 sm:flex-none border-destructive text-destructive hover:bg-destructive/10"
