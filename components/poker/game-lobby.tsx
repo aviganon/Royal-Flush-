@@ -368,6 +368,8 @@ export function GameLobby({ onJoinTable, onOpenGameSelector }: GameLobbyProps) {
 
   useEffect(() => {
     void loadRooms();
+    const interval = setInterval(() => void loadRooms(), 5000);
+    return () => clearInterval(interval);
   }, [loadRooms]);
 
   useEffect(() => {
@@ -440,6 +442,7 @@ export function GameLobby({ onJoinTable, onOpenGameSelector }: GameLobbyProps) {
       smallBlind: preset.smallBlind,
       bigBlind: preset.bigBlind,
     });
+    setTimeout(() => void loadRooms(), 1500);
   };
 
   return (
