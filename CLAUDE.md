@@ -199,11 +199,12 @@ npx tsc --noEmit
 
 ```bash
 cd /path/to/ROYAL-FLUSH
-git fetch origin
+npm run sync:git              # או: git fetch origin && git pull origin main
 git status                    # צריך להיות "clean" או רק שינויים מכוונים
-git log HEAD..origin/main     # אם יש שורות — יש קומיטים ב-GitHub שלא אצלך
-git pull origin main          # משך את העדכונים לפני שמתחילים לערוך
+git log HEAD..origin/main     # אם יש שורות — יש קומיטים ב-GitHub שלא אצלך (אחרי fetch)
 ```
+
+אם `npm run sync:git` נכשל (למשל קונפליקט), פתור ידנית עם `git status` ו-`git merge` / `git rebase`.
 
 לפני דחיפה:
 
@@ -232,7 +233,11 @@ git push origin main
 
 ### אופציה מתקדמת ב-GitHub
 
-ב-**Settings → Branches** אפשר להפעיל **Branch protection** על `main` (למשל: חובה PR, איסור force push). מפחית סיכון לדריסה קולקטיבית.
+ב-**Settings → Branches** אפשר להפעיל **Branch protection** על `main` (למשל: חובה PR, איסור force push). מפחית סיכון לדריסה קולקטיבית. הוראות צעד-אחר-צעד: **[`.github/BRANCH_PROTECTION.md`](./.github/BRANCH_PROTECTION.md)**.
+
+### CI אוטומטי
+
+בכל push ל-`main` או Pull Request, **GitHub Actions** מריץ `tsc` ו-`next build` (ראה `.github/workflows/ci.yml`). כדאי לחבר את ה-check הזה ל-branch protection כדי שלא יימזג קוד שבור.
 
 ---
 
