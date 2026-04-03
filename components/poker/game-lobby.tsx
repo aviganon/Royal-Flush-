@@ -469,9 +469,7 @@ export function GameLobby({ onJoinTable, onOpenGameSelector }: GameLobbyProps) {
             <h1 className="text-3xl lg:text-4xl font-bold text-foreground font-[family-name:var(--font-orbitron)] mb-2">
               לובי <span className="text-gold animate-neon-pulse">המשחקים</span>
             </h1>
-            <p className="text-muted-foreground">
-              חדרים חיים מהשרת — Hold&apos;em מרובה משתתפים
-            </p>
+
             {roomsError && (
               <p className="text-sm text-amber-500 mt-2">{roomsError}</p>
             )}
