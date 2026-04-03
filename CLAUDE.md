@@ -1,244 +1,241 @@
-# הוראות ל-Claude / למפתח: בנייה, הגדרה ובדיקות — Royal Flush
+# CLAUDE.md — Royal Flush
 
-מסמך זה מתאר מה צריך לבנות, להגדיר ולבדוק כדי שהמערכת (Next.js + Firebase + Socket.IO + Stripe אופציונלי) תעבוד מקצה לקצה.
-
----
-
-## 1. דרישות מקדימות
-
-- **Node.js** LTS (מומלץ 20+)
-- **npm** (או pnpm/yarn — הסקריפטים בפרויקט מניחים `npm`)
-- חשבון **Google** ל-Firebase Console
-- (אופציונלי) חשבון **Stripe** לתשלומים
-- (אופציונלי) **Firebase CLI** — או שימוש ב-`npm run firebase:deploy-rules` (מריץ `npx firebase-tools`)
+**לפני שאתה עושה שינויים:** קרא מסמך זה במלואו. הוא מגדיר ארכיטקטורה, סודות, פריסה ומגבלות (במיוחד Socket מול Vercel).
 
 ---
 
-## 2. שכפול והתקנה
+## תוכן עניינים
 
-```bash
-cd /path/to/ROYAL-FLUSH
-npm install
-```
-
----
-
-## 3. משתני סביבה (חובה לפני אימות משתמשים)
-
-1. העתק `cp .env.local.example .env.local`
-2. מלא לפי הסעיפים הבאים. **אל תעלה `.env.local` ל-git** (מבוטל ב-`.gitignore`).
-
-### 3.1 Firebase Web (לקוח)
-
-מ-[Firebase Console](https://console.firebase.google.com/project/royal-flush-32cbb/settings/general) → **Project settings** → **Your apps** → אפליקציית Web → ה-snippet של ה-SDK:
-
-| משתנה | מקור |
-|--------|------|
-| `NEXT_PUBLIC_FIREBASE_API_KEY` | `apiKey` |
-| `NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID` | `messagingSenderId` |
-| `NEXT_PUBLIC_FIREBASE_APP_ID` | `appId` |
-| `NEXT_PUBLIC_FIREBASE_PROJECT_ID` | בדוגמה: `royal-flush-32cbb` |
-| `NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN` | בדוגמה: `royal-flush-32cbb.firebaseapp.com` |
-| `NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET` | מה-snippet (לעיתים `*.appspot.com` או `*.firebasestorage.app`) |
-
-אם אחד מה-`NEXT_PUBLIC_*` חסר — `isFirebaseConfigured()` מחזיר false והאפליקציה תציג מסך "Firebase לא מוגדר".
-
-### 3.2 Firebase Admin (שרת Next + Webhook + אימות Socket)
-
-- **Project settings** → **Service accounts** → **Generate new private key**
-- את **כל** תוכן קובץ ה-JSON מדביקים בשורה אחת ב-`FIREBASE_SERVICE_ACCOUNT_JSON` (בתוך `.env.local`)
-- בלי זה:
-  - `POST /api/auth/bootstrap` יחזיר 503 — מסמך `users/{uid}` לא נוצר בשרת
-  - Webhook של Stripe לא יעדכן צ'יפים
-  - אימות JWT בשרת הפוקר לא יפעל (אם נשלח `idToken`)
-
-### 3.3 אפליקציה ו-Socket
-
-| משתנה | דוגמה מקומית |
-|--------|----------------|
-| `NEXT_PUBLIC_APP_URL` | `http://localhost:3000` |
-| `NEXT_PUBLIC_POKER_SOCKET_URL` | `http://localhost:4000` |
-
-בפריסה לייצור: עדכן לדומיין האמיתי והוסף `POKER_CORS_ORIGIN` עם רשימת מקורות מופרדת בפסיקים.
-
-### 3.4 Stripe (אופציונלי)
-
-| משתנה | תיאור |
-|--------|--------|
-| `STRIPE_SECRET_KEY` | מפתח סודי (למשל `sk_test_...`) |
-| `STRIPE_WEBHOOK_SECRET` | אחרי יצירת endpoint ל-`/api/stripe/webhook` |
-
-בלי Stripe: מסך הארנק עדיין נטען; כפתורי הפקדה יחזירו שגיאה מה-API — זה צפוי.
+| סעיף | תוכן |
+|------|------|
+| [Firebase](#firebase) | פרויקט, Auth, Firestore, Rules |
+| [Vercel](#vercel) | URL, צוות, חיבור GitHub, משתני סביבה בדשבורד |
+| [משתני סביבה](#משתני-סביבה-רשימה-מלאה) | כל המפתחות — **בלי ערכים אמיתיים בקוד/ב-git** |
+| [קבצים חדשים](#קבצים-חדשים-תשתית-עיקרית) | מה נוצר ותפקיד כל אחד |
+| [קבצים שעודכנו](#קבצים-שעודכנו-עיקריים) | שינויים מרכזיים |
+| [זרימת צ'יפים (Chip Flow)](#זרימת-ציפים-chip-flow) | מקצה לקצה |
+| [אזהרת Socket + Vercel](#-אזהרת-socket--vercel) | **חובה לקרוא לפני פריסה** |
+| [Checklist](#checklist-מה-עובד--מה-חסר) | מה עובד / מה עדיין חסר |
+| [מבנה קבצים](#מבנה-קבצים-עץ-מוצע) | עץ עם ✅ |
+| [הפעלה מקומית ובדיקות](#הפעלה-מקומית-ובדיקות) | פקודות, CI, סנכרון Git |
 
 ---
 
-## 4. הגדרות Firebase Console (לא בקוד)
+## Firebase
 
-### 4.1 Authentication
-
-- הפעל: **Email/Password**, **Google**, **Facebook** (אם נדרש — עם App ב-Meta)
-- **Authentication → Settings → Authorized domains**: ודא `localhost` ודומיין הייצור
-
-### 4.2 Firestore
-
-- צור מסד נתונים אם עדיין לא קיים
-- פרוס חוקים מהריפו:
-
-```bash
-firebase login   # פעם אחת
-npm run firebase:deploy-rules
-```
-
-הפרויקט ב-`.firebaserc` מוגדר כ-`royal-flush-32cbb`. החוקים ב-`firestore.rules` אוסרים כתיבת `chips` מהלקוח — רק Admin SDK.
-
----
-
-## 5. הרצה מקומית
-
-```bash
-npm run dev
-```
-
-מריץ במקביל:
-
-- **Next.js** — בדרך כלל `http://localhost:3000`
-- **שרת Socket.IO** — `http://localhost:4000`
-
-אם פורט 3000 תפוס: עצור תהליך ישן או השתמש ב-`npm run dev:next` / `dev:socket` בנפרד.
-
----
-
-## 6. בדיקות שכדאי לבצע (Checklist)
-
-### 6.1 בלי `.env.local` מלא
-
-- [ ] נטען מסך "Firebase לא מוגדר" או הוראות — צפוי
-
-### 6.2 עם Firebase Web בלבד (בלי Admin JSON)
-
-- [ ] התחברות עם Google/מייל עשויה לעבוד ב-Auth
-- [ ] פרופיל/צ'יפים עלולים לא להיסנכרן; bootstrap עלול להיכשל — צפוי
-
-### 6.3 עם Web + Admin מלא
-
-- [ ] כניסה עם **אימייל וסיסמה** (הרשמה + כניסה)
-- [ ] כניסה עם **Google**
-- [ ] כניסה עם **Facebook** (אם הופעל בקונסול)
-- [ ] **שכחתי סיסמה** — מייל מאימות Firebase
-- [ ] אחרי כניסה: ב-Firestore מופיע מסמך `users/{uid}` עם שדה `chips` (ברירת מחדל מה-bootstrap)
-- [ ] ניווט: לובי, ארנק, טבלת מובילים
-
-### 6.4 שולחן פוקר (Hold'em)
-
-- [ ] שני דפדפנים / רגיל + אינקוגניטו, אותו שולחן מלובי
-- [ ] שני משתמשים מחוברים — יד מתחילה כשיש לפחות 2 שחקנים עם צ'יפים
-- [ ] פעולות: פולד, צ'ק/קול, רייז
-- [ ] אם `FIREBASE_SERVICE_ACCOUNT_JSON` מוגדר גם לתהליך של `server/poker-server.ts` — `join` עם `idToken` מאומת; בלי JSON — השרת מדלג על אימות (התאמה לאחור)
-
-### 6.5 Stripe (אם הוגדר)
-
-- [ ] `POST /api/stripe/create-checkout-session` עם `Authorization: Bearer <idToken>` וגוף `{ "amountUsd": 10 }` — מחזיר `{ url }`
-- [ ] Webhook: אירוע `checkout.session.completed` מגיע ל-`/api/stripe/webhook` — `chips` ב-`users/{uid}` עולה; רשומה תחת `users/{uid}/transactions`
-
-### 6.6 Build ייצור
-
-```bash
-npx next build
-```
-
-- [ ] הבנייה מסתיימת ללא שגיאות קומפילציה קריטיות (בפרויקט ייתכן `ignoreBuildErrors` ב-next.config — עדיין כדאי להריץ `npx tsc --noEmit` לבדיקת טיפוסים)
-
-```bash
-npx tsc --noEmit
-```
-
----
-
-## 7. מבנה קוד רלוונטי (לא לשנות בלי סיבה)
-
-| אזור | תפקיד |
+| נושא | פרטים |
 |------|--------|
-| `app/page.tsx` | זרימת אפליקציה, חיבור ל-`useFirebaseAuth`, לובי/שולחן |
-| `components/providers/firebase-auth-provider.tsx` | Auth + onSnapshot לפרופיל |
-| `lib/firebase/*` | אתחול Web, Admin, bootstrap לוגיקה בצד לקוח |
-| `app/api/auth/bootstrap` | יצירת/עדכון `users/{uid}` |
-| `app/api/stripe/*` | תשלום + webhook |
-| `server/poker-server.ts` | חדרי משחק, Socket.IO |
-| `server/firebase-verify.ts` | אימות JWT אופציונלי ב-join |
-| `lib/poker/holdem-engine.ts` | לוגיקת Texas Hold'em |
-| `hooks/use-poker-socket.ts` | לקוח Socket + `idToken` ב-join |
-| `firestore.rules` | אבטחת קריאה/כתיבה |
+| **פרויקט (דוגמה)** | `royal-flush-32cbb` — [הגדרות כלליות](https://console.firebase.google.com/project/royal-flush-32cbb/settings/general) |
+| **Authentication** | Email/Password, Google, Facebook (Facebook דורש App ב-Meta + הגדרה בקונסול) |
+| **Authorized domains** | `localhost` + דומיין Vercel/ייצור תחת Auth → Settings |
+| **Firestore** | אוספים: `users/{uid}` (שדות כולל `chips`, `displayName`, …), `users/{uid}/transactions/{txId}` להפקדות Stripe |
+| **Rules** | קובץ `firestore.rules` — קריאה לבעלים בלבד; **אין כתיבת `chips` מהלקוח** (רק Admin SDK בשרת) |
+| **פריסת Rules** | `npm run firebase:deploy-rules` (אחרי `firebase login`) — `.firebaserc` מצביע על הפרויקט |
+| **Service Account** | מפתח JSON → משתנה סביבה `FIREBASE_SERVICE_ACCOUNT_JSON` (שורה אחת) — **לא ב-git** |
 
 ---
 
-## 8. כשלים נפוצים
+## Vercel
 
-| תסמין | כיוון בדיקה |
-|--------|-------------|
-| מסך Firebase חסר | מלא `NEXT_PUBLIC_FIREBASE_*` ב-`.env.local` והפעל מחדש `npm run dev` |
-| התחברות נחסמת ב-localhost | Authorized domains ב-Firebase Auth |
-| אין צ'יפים / אין מסמך user | `FIREBASE_SERVICE_ACCOUNT_JSON` + פריסת `firestore.rules` |
-| Socket לא מתחבר | פורט 4000, `NEXT_PUBLIC_POKER_SOCKET_URL`, CORS `POKER_CORS_ORIGIN` בייצור |
-| `EADDRINUSE :4000` | סגור תהליך ישן או שנה `POKER_SOCKET_PORT` |
-| Stripe נדחה | מפתחות, webhook secret, URL ציבורי ל-webhook (לא localhost בלי Stripe CLI) |
+| נושא | פרטים |
+|------|--------|
+| **חיבור GitHub** | ריפו: `https://github.com/aviganon/Royal-Flush-` — ייבוא פרויקט מ-Vercel → Add Git Repository |
+| **URL** | Production / Preview נוצרים אוטומטית — רשום את הדומיין ב-`NEXT_PUBLIC_APP_URL` וב-**Firebase Authorized domains** וב-**Stripe** (אם רלוונטי) |
+| **Team** | לפי ארגון ב-Vercel — ללא ערך קבוע במסמך |
+| **Build** | `npm run build` — ראה CI ב-`.github/workflows/ci.yml` |
+| **משתני סביבה ב-Vercel** | Project → Settings → Environment Variables: להעתיק את כל `NEXT_PUBLIC_*`, `FIREBASE_SERVICE_ACCOUNT_JSON`, `STRIPE_*` מ-`.env.local` (אותם שמות) |
 
----
-
-## 9. הערות מוצר / משפטיות
-
-- תשלומים ו"צ'יפים" הם לוגיקה טכנית; יש לוודא עמידה ברגולציה מקומית להימורים ותשלומים.
-- סנכרון יתרה בין שולחן הפוקר בזיכרון לבין Firestore — כרגע חלקי; שיפור עתידי: עדכון צ'יפים מהשרת אחרי סיום יד.
+**חשוב:** Vercel מריץ רק את **Next.js**. את **שרת ה-Socket** (`server/poker-server.ts`) **לא** מריצים על Vercel — ראה סעיף [אזהרת Socket](#-אזהרת-socket--vercel).
 
 ---
 
-## 10. סנכרון קבצים: מקומי, GitHub ו-Google Cloud
+## משתני סביבה (רשימה מלאה)
 
-**עקרון:** מקור האמת לקוד הוא **Git** (ברירת מחדל: ענף `main` ב-[GitHub](https://github.com/aviganon/Royal-Flush-)). לא מסתמכים על העתקת תיקיות ידנית בין מחשב ל-Cloud — רק `git pull` / `git push`.
+הערכים האמיתיים רק ב-`.env.local` (מקומי) או ב-Vercel Secrets — **לעולם לא בקומיט**.
 
-### לוודא שהכל מסונכן לפני עבודה
+| משתנה | תפקיד |
+|--------|--------|
+| `NEXT_PUBLIC_FIREBASE_API_KEY` | Firebase Web SDK |
+| `NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN` | לרוב `{projectId}.firebaseapp.com` |
+| `NEXT_PUBLIC_FIREBASE_PROJECT_ID` | מזהה פרויקט |
+| `NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET` | מ-bucket snippet |
+| `NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID` | מ-snippet |
+| `NEXT_PUBLIC_FIREBASE_APP_ID` | מ-snippet |
+| `FIREBASE_SERVICE_ACCOUNT_JSON` | JSON מלא של Service Account (שורה אחת) — bootstrap, Stripe webhook, אימות Socket |
+| `NEXT_PUBLIC_APP_URL` | כתובת האתר (מקומי / ייצור) |
+| `NEXT_PUBLIC_POKER_SOCKET_URL` | כתובת שרת Socket.IO (מקומי: `http://localhost:4000`; בייצור: URL של שרת נפרד) |
+| `POKER_CORS_ORIGIN` | אופציונלי — מקורות מופרדים בפסיקים ל-CORS של Socket |
+| `POKER_SOCKET_PORT` | אופציונלי — ברירת מחדל 4000 |
+| `STRIPE_SECRET_KEY` | תשלומים |
+| `STRIPE_WEBHOOK_SECRET` | אימות חתימת webhook |
 
-```bash
-cd /path/to/ROYAL-FLUSH
-npm run sync:git              # או: git fetch origin && git pull origin main
-git status                    # צריך להיות "clean" או רק שינויים מכוונים
-git log HEAD..origin/main     # אם יש שורות — יש קומיטים ב-GitHub שלא אצלך (אחרי fetch)
+דוגמה להעתקה: `.env.local.example` בשורש הפרויקט.
+
+---
+
+## קבצים חדשים (תשתית עיקרית)
+
+| קובץ / תיקייה | תפקיד |
+|----------------|--------|
+| `lib/firebase/` | `config`, `client-app`, `admin`, `auth-actions`, `user-profile` — חיבור Firebase Web + דפוסים ל-API |
+| `components/providers/firebase-auth-provider.tsx` | הקשר React: משתמש Firebase + onSnapshot לפרופיל/צ'יפים |
+| `app/api/auth/bootstrap/route.ts` | יצירת/עדכון `users/{uid}` ב-Firestore (Admin) |
+| `app/api/stripe/create-checkout-session/route.ts` | יצירת סשן Stripe עם metadata ל-`firebaseUid` |
+| `app/api/stripe/webhook/route.ts` | `checkout.session.completed` → עדכון `chips` + תנועה ב-`transactions` |
+| `server/poker-server.ts` | שרת Node + Socket.IO — חדרי Hold'em |
+| `server/firebase-verify.ts` | אימות `idToken` ב-`join` אם הוגדר Admin JSON לתהליך השרת |
+| `lib/poker/` | מנוע Hold'em: `holdem-engine`, `evaluate`, `deck`, `types` |
+| `hooks/use-poker-socket.ts` | לקוח Socket + שליחת `idToken` ב-join |
+| `hooks/use-wallet-transactions.ts` | האזנה ל-`transactions` ב-Firestore |
+| `firestore.rules` + `firebase.json` + `.firebaserc` | אבטחת Firestore + פריסה |
+| `.github/workflows/ci.yml` | CI: `tsc` + `next build` |
+| `.github/BRANCH_PROTECTION.md` | הוראות להגנה על `main` |
+
+---
+
+## קבצים שעודכנו (עיקריים)
+
+| קובץ | שינוי עיקרי |
+|------|------------|
+| `app/page.tsx` | זרימה עם `useFirebaseAuth`, לובי/שולחן/ארנק, `sync:git` תואם תיעוד |
+| `app/layout.tsx` | `FirebaseAuthProvider`, Toaster |
+| `components/poker/login-screen.tsx` | התחברות Firebase (מייל, Google, Facebook) |
+| `components/poker/poker-table.tsx` | חיבור Socket + `getIdToken` |
+| `components/poker/wallet-dashboard.tsx` | Stripe + היסטוריה מ-Firestore |
+| `package.json` | `dev` (Next+Socket), `typecheck`, `sync:git`, `firebase:deploy-rules` |
+| `README.md` | התחלה מהירה, סנכרון, CI |
+| `.gitignore` | `.env*.local`, `*.tsbuildinfo` |
+
+---
+
+## זרימת צ'יפים (Chip Flow)
+
+```
+1) הרשמה/כניסה (Firebase Auth)
+        ↓
+2) POST /api/auth/bootstrap (Bearer idToken) → Firestore users/{uid}
+   • משתמש חדש: chips התחלתיים (ברירת מחדל בקוד bootstrap)
+        ↓
+3) מסך ארנק קורא chips דרך onSnapshot (FirebaseAuthProvider)
+        ↓
+4) הפקדה: create-checkout-session → Stripe → משתמש משלם
+        ↓
+5) Webhook checkout.session.completed → Admin SDK מוסיף chips + רשומה ב-transactions
+        ↓
+6) שולחן פוקר (Socket): buyIn נשלח מהלקוח בעת join — מנוע המשחק מחזיק צ'יפים בזיכרון השרת
 ```
 
-אם `npm run sync:git` נכשל (למשל קונפליקט), פתור ידנית עם `git status` ו-`git merge` / `git rebase`.
+**פער ידוע:** סיום יד בשולחן **לא** מעדכן אוטומטית את `chips` ב-Firestore — נדרש שכבת סנכרון עתידית (API/פונקציה) אם רוצים יתרה אחת מלאה.
 
-לפני דחיפה:
+---
+
+## ⚠️ אזהרת Socket + Vercel
+
+- **Vercel** מריץ **פונקציות serverless / Edge** — **לא** תהליך Node קבוע שמאזין על פורט ל-Socket.IO.
+- לכן **`server/poker-server.ts` לא יעבוד על Vercel** כחלק מה-deploy הסטנדרטי של Next.
+- **פתרונות נפוצים:**
+  - **Cloud Run** / **Railway** / **Fly.io** / **Render** / **VPS** — להריץ את שרת ה-Socket שם, ולהגדיר `NEXT_PUBLIC_POKER_SOCKET_URL` לכתובת הציבורית שלו.
+  - **CORS:** `POKER_CORS_ORIGIN` חייב לכלול את דומיין ה-Vercel (וגם localhost לפיתוח).
+- בלי שרת Socket נפרד: **ה-UI של האפליקציה עלול לעבוד**, אבל **שולחן הרב-משתתפים לא יתחבר**.
+
+---
+
+## Checklist: מה עובד / מה חסר
+
+| סטטוס | נושא |
+|--------|------|
+| ✅ | Next.js App Router, UI לובי/ניווט |
+| ✅ | Firebase Auth (מייל, Google, Facebook אם הופעל בקונסול) |
+| ✅ | Firestore פרופיל + צ'יפים + transactions (הפקדות) |
+| ✅ | API bootstrap, Stripe checkout + webhook (אם מפתחות מוגדרים) |
+| ✅ | שרת Socket מקומי + Hold'em engine |
+| ✅ | CI ב-GitHub Actions |
+| ⚠️ | שולחן בייצור — **דורש** שרת Socket נפרד + env |
+| ⚠️ | סנכרון צ'יפים אחרי יד — **לא מומש** מקצה לקצה |
+| ⚠️ | משיכות כסף / KYC — תיעוד בלבד ב-UI |
+
+---
+
+## מבנה קבצים (עץ מוצע)
+
+```
+ROYAL FLUSH/
+├── .env.local.example          ✅ תבנית סודות
+├── .firebaserc                 ✅ פרויקט Firebase ברירת מחדל
+├── .github/
+│   ├── BRANCH_PROTECTION.md    ✅
+│   └── workflows/ci.yml        ✅
+├── app/
+│   ├── api/auth/bootstrap/     ✅
+│   ├── api/stripe/*            ✅
+│   ├── layout.tsx              ✅
+│   ├── page.tsx                ✅
+│   └── globals.css
+├── components/poker/*          ✅ מסכי משחק / התחברות
+├── components/providers/       ✅ FirebaseAuthProvider
+├── firestore.rules             ✅
+├── firebase.json               ✅
+├── hooks/use-poker-socket.ts   ✅
+├── hooks/use-wallet-transactions.ts ✅
+├── lib/firebase/*              ✅
+├── lib/poker/*                 ✅ מנוע משחק
+├── server/
+│   ├── poker-server.ts         ✅
+│   └── firebase-verify.ts      ✅
+├── CLAUDE.md                   ✅ מסמך זה
+├── README.md                   ✅
+└── package.json                ✅
+```
+
+---
+
+## הפעלה מקומית ובדיקות
 
 ```bash
-git status
-git diff                      # בדיקה מה השתנה
+npm install
+cp .env.local.example .env.local   # ומלא ערכים
+npm run dev                        # Next + Socket (פורטים 3000 ו-4000)
+npm run typecheck
+npm run sync:git                   # לפני עבודה: משיכה מ-main
+```
+
+- **פריסת חוקים:** `npm run firebase:deploy-rules`
+- **סנכרון Git / GitHub / Cloud:** ראה סעיף קודם בגרסה המפורטת למטה.
+
+---
+
+## סנכרון Git, GitHub ו-Google Cloud (מפורט)
+
+**מקור אמת:** ענף `main` ב-[GitHub](https://github.com/aviganon/Royal-Flush-).
+
+```bash
+npm run sync:git              # git fetch + pull origin main
+git status && git diff
 git push origin main
 ```
 
-אם GitHub דוחה push כי יש היסטוריה שונה: **אל תריצו** `git push --force` בלי הבנה. עדיף `git pull --rebase origin main` (או merge), לפתור קונפליקטים, ואז `git push`.
-
-### Google Cloud Shell / VM / Cloud Build
-
-- **אותו ריפו:** `git clone https://github.com/aviganon/Royal-Flush-.git` (או SSH), עבודה בתוך התיקייה, `commit` + `push` חזרה ל-GitHub.
-- **לא לערוך בשני מקומים בלי משיכה:** אם ערכת ב-Cursor וב-Cloud — תמיד `pull` במקום השני לפני המשך עבודה.
-- **פריסה (Deploy):** Cloud Run / Build לרוב עושים `git clone` מהריפו או trigger על push — הקוד ב-GitHub הוא מה שנבנה; שינויים רק ב-VM בלי commit **לא** מגונים על GitHub ונעלמים אם המכונה נמחקת.
-
-### איך לא לדרוס בטעות את מה שב-GitHub
-
-| עשה | אל תעשה |
-|-----|---------|
-| `git pull` לפני עבודה ארוכה | להעתיק קבצים מעל התיקייה בלי git |
-| `git push` אחרי commit ברור | `git push --force` ל-`main` (מוחק היסטוריה אצל אחרים) |
-| לבדוק `git log` / `git diff` לפני push | לערוך ישירות ב-GitHub Editor ואז לשכוח למשוך למקומי |
-| ענפי feature (`git checkout -b feature/...`) לשינויים גדולים | כמה ימים של שינויים בלי commit |
-
-### אופציה מתקדמת ב-GitHub
-
-ב-**Settings → Branches** אפשר להפעיל **Branch protection** על `main` (למשל: חובה PR, איסור force push). מפחית סיכון לדריסה קולקטיבית. הוראות צעד-אחר-צעד: **[`.github/BRANCH_PROTECTION.md`](./.github/BRANCH_PROTECTION.md)**.
-
-### CI אוטומטי
-
-בכל push ל-`main` או Pull Request, **GitHub Actions** מריץ `tsc` ו-`next build` (ראה `.github/workflows/ci.yml`). כדאי לחבר את ה-check הזה ל-branch protection כדי שלא יימזג קוד שבור.
+- **אל** `git push --force` ל-`main` בלי הבנה.
+- ב-Cloud: `git clone` אותו ריפו; תמיד `pull` לפני עריכה במחשב אחר.
+- **Branch protection + CI:** `.github/BRANCH_PROTECTION.md`
 
 ---
 
-**סיכום ל-Claude:** הרץ `npm install`, הגדר `.env.local`, הגדר Firebase Auth + Firestore + פרוס rules, הרץ `npm run dev`, ועבור על סעיף 6. לפני/אחרי עבודה ממחשב אחר או Cloud — סעיף 10. אם משהו נכשל — השווה לטבלת כשלים בסעיף 8.
+## כשלים נפוצים
+
+| תסמין | בדיקה |
+|--------|--------|
+| מסך "Firebase לא מוגדר" | `NEXT_PUBLIC_FIREBASE_*` ב-`.env.local` |
+| אין מסמך user / צ'יפים | `FIREBASE_SERVICE_ACCOUNT_JSON` + `firestore.rules` פרוסים |
+| Socket לא מתחבר | פורט 4000, `NEXT_PUBLIC_POKER_SOCKET_URL`, CORS |
+| שולחן לא עובד ב-Vercel | צפוי — חובה שרת Socket נפרד (סעיף אזהרה למעלה) |
+| Stripe נדחה | מפתחות + Webhook URL ציבורי |
+
+---
+
+## הערות משפטיות
+
+צ'יפים ותשלומים הם יכולות טכניות; יש לוודא עמידה ברגולציה מקומית (הימורים, תשלומים, גיל).
+
+---
+
+**תזכורת ל-Claude:** לפני שינוי — קרא מסמך זה. אחרי שינוי בלוגיקת כסף/אבטחה — עדכן את הטבלאות וה-checklist כאן או ב-README בהתאם.
