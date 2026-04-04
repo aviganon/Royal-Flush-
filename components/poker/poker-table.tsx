@@ -44,39 +44,67 @@ const PlayingCard = memo(function PlayingCard({
   card,
   index,
   isHidden: forceHidden,
-  small = false,
+  size = "md",
 }: {
   card: Card;
   index: number;
   isHidden?: boolean;
-  small?: boolean;
+  /** sm = opponent hidden cards, md = board cards, lg = my hole cards */
+  size?: "sm" | "md" | "lg";
 }) {
   const isHidden = forceHidden || card.value === "?";
+
+  const dims =
+    size === "lg"
+      ? "w-16 h-24 sm:w-20 sm:h-28"
+      : size === "md"
+      ? "w-13 h-18 sm:w-16 sm:h-22"
+      : "w-8 h-12 sm:w-10 sm:h-14";
+
+  const textSm =
+    size === "lg"
+      ? "text-base sm:text-lg font-extrabold"
+      : size === "md"
+      ? "text-sm sm:text-base font-bold"
+      : "text-xs font-bold";
+
+  const textCenter =
+    size === "lg"
+      ? "text-3xl sm:text-4xl"
+      : size === "md"
+      ? "text-xl sm:text-2xl"
+      : "text-lg";
+
   return (
     <motion.div
       initial={{ rotateY: 180, x: -60, opacity: 0 }}
       animate={{ rotateY: isHidden ? 180 : 0, x: 0, opacity: 1 }}
+      whileHover={size === "lg" ? { y: -8, scale: 1.06 } : undefined}
       transition={{ delay: index * 0.08, duration: 0.45, type: "spring", damping: 18 }}
-      className={`relative ${
-        small ? "w-8 h-12 sm:w-10 sm:h-14" : "w-12 h-16 sm:w-14 sm:h-20"
-      } rounded-lg shadow-lg transform-gpu`}
+      className={`relative ${dims} rounded-xl shadow-xl transform-gpu cursor-default select-none`}
       style={{ perspective: "1000px" }}
     >
       {isHidden ? (
-        <div className="absolute inset-0 rounded-lg bg-gradient-to-br from-blue-900 to-blue-950 border-2 border-blue-700 flex items-center justify-center">
-          <div className="w-full h-full rounded-lg bg-[repeating-linear-gradient(45deg,transparent,transparent_5px,rgba(59,130,246,0.1)_5px,rgba(59,130,246,0.1)_10px)]" />
-          <span className="absolute text-xl sm:text-2xl">🃏</span>
+        <div className="absolute inset-0 rounded-xl bg-gradient-to-br from-blue-900 to-blue-950 border-2 border-blue-700 flex items-center justify-center">
+          <div className="w-full h-full rounded-xl bg-[repeating-linear-gradient(45deg,transparent,transparent_5px,rgba(59,130,246,0.1)_5px,rgba(59,130,246,0.1)_10px)]" />
+          <span className={`absolute ${textCenter}`}>🃏</span>
         </div>
       ) : (
-        <div className="absolute inset-0 rounded-lg bg-white border border-gray-200 p-1 flex flex-col items-center justify-between">
-          <span className={`text-xs sm:text-sm font-bold ${suitColorsMap[card.suit]}`}>
+        <div
+          className={`absolute inset-0 rounded-xl bg-white border ${
+            size === "lg" ? "border-gray-300 shadow-lg p-1.5" : "border-gray-200 p-1"
+          } flex flex-col items-center justify-between`}
+        >
+          <span className={`${textSm} ${suitColorsMap[card.suit]} self-start leading-none`}>
             {card.value}
+            <span className="ml-0.5">{suitSymbolsMap[card.suit]}</span>
           </span>
-          <span className={`text-lg sm:text-2xl ${suitColorsMap[card.suit]}`}>
+          <span className={`${textCenter} ${suitColorsMap[card.suit]} font-bold`}>
             {suitSymbolsMap[card.suit]}
           </span>
-          <span className={`text-xs sm:text-sm font-bold rotate-180 ${suitColorsMap[card.suit]}`}>
+          <span className={`${textSm} ${suitColorsMap[card.suit]} self-end leading-none rotate-180`}>
             {card.value}
+            <span className="ml-0.5">{suitSymbolsMap[card.suit]}</span>
           </span>
         </div>
       )}
@@ -442,7 +470,7 @@ export function PokerTable({
                     exit={{ scale: 0 }}
                     transition={{ delay: index * 0.15, type: "spring" }}
                   >
-                    <PlayingCard card={card} index={index} />
+                    <PlayingCard card={card} index={index} size="md" />
                   </motion.div>
                 ))}
               </AnimatePresence>
@@ -519,15 +547,15 @@ export function PokerTable({
                     </span>
                   </div>
 
-                  {/* קלפים */}
-                  {hole.length > 0 && (
+                  {/* קלפים — לשחקנים אחרים בלבד; שלי מוצגים גדול למטה */}
+                  {hole.length > 0 && !isSelf && (
                     <div className="flex gap-0.5 mt-0.5">
                       {hole.map((card, idx) => (
                         <PlayingCard
                           key={`${state?.handNumber ?? 0}-${card.value}${card.suit}`}
                           card={card}
                           index={idx}
-                          small
+                          size="sm"
                         />
                       ))}
                     </div>
@@ -557,6 +585,28 @@ export function PokerTable({
           })}
         </div>
       </div>
+
+      {/* ── קלפי השחקן (גדולים) ── */}
+      {me && (() => {
+        const myHole = "cards" in me ? (me.cards as Card[]) : [];
+        return myHole.length > 0 ? (
+          <motion.div
+            className="fixed bottom-40 left-1/2 -translate-x-1/2 z-20 flex gap-2 sm:gap-3"
+            initial={{ y: 40, opacity: 0 }}
+            animate={{ y: 0, opacity: 1 }}
+            transition={{ delay: 0.4, type: "spring", damping: 18 }}
+          >
+            {myHole.map((card, idx) => (
+              <PlayingCard
+                key={`${state?.handNumber ?? 0}-${card.value}${card.suit}`}
+                card={card}
+                index={idx}
+                size="lg"
+              />
+            ))}
+          </motion.div>
+        ) : null;
+      })()}
 
       <motion.div
         initial={{ y: 120, opacity: 0 }}
