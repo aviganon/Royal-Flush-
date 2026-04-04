@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Royal Flush — אין חיבור</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      min-height: 100svh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 1.5rem;
+      background: linear-gradient(to bottom, #0a0a0f, #0d1117, #0a1628);
+      color: #fff;
+      font-family: system-ui, sans-serif;
+      text-align: center;
+      padding: 2rem;
+    }
+    .icon { font-size: 4rem; }
+    h1 { font-size: 1.5rem; color: #C9A227; }
+    p  { color: #9ca3af; font-size: 0.95rem; line-height: 1.6; max-width: 300px; }
+    button {
+      margin-top: 0.5rem;
+      padding: 0.75rem 2rem;
+      border-radius: 9999px;
+      background: linear-gradient(135deg, #10B981, #059669);
+      color: #fff;
+      font-size: 1rem;
+      font-weight: 600;
+      border: none;
+      cursor: pointer;
+    }
+  </style>
+</head>
+<body>
+  <div class="icon">🃏</div>
+  <h1>Royal Flush</h1>
+  <p>אין חיבור לאינטרנט.<br/>בדוק את החיבור שלך ונסה שוב.</p>
+  <button onclick="location.reload()">נסה שוב</button>
+</body>
+</html>
