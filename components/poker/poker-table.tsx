@@ -437,8 +437,9 @@ function seatPosition(seat: number, maxSeats = 9, mySeat = 0) {
   // ((seat − mySeat) / maxSeats) × 2π gives relative offset;
   // + π/2 rotates the origin to bottom-center (y-axis positive = down).
   const angle = ((seat - mySeat) / maxSeats) * 2 * Math.PI + Math.PI / 2;
+  // radiusY=30 (was 35) keeps bottom seats from going behind the action bar
   const radiusX = 42;
-  const radiusY = 35;
+  const radiusY = 30;
   return {
     x: 50 + radiusX * Math.cos(angle),
     y: 50 + radiusY * Math.sin(angle),
@@ -755,7 +756,8 @@ export function PokerTable({
         </div>
       )}
 
-      <div className="relative z-10 flex-1 flex items-center justify-center p-4 min-h-[calc(100vh-180px)]">
+      {/* pb-32 leaves room for the fixed action bar (~80px) so the bottom seat is never hidden */}
+      <div className="relative z-10 flex-1 flex items-center justify-center p-4 pb-32 min-h-[calc(100vh-180px)]">
         <div className="relative w-full max-w-4xl aspect-[16/10]">
           <motion.div
             initial={{ scale: 0.8, opacity: 0 }}
