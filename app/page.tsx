@@ -31,7 +31,10 @@ export default function PokerApp() {
   const { configured, loading, user, profile, getIdToken, logout, refreshBootstrap } =
     useFirebaseAuth();
   const isAdmin =
-    !!user && !!process.env.NEXT_PUBLIC_ADMIN_UID && user.uid === process.env.NEXT_PUBLIC_ADMIN_UID;
+    !!user && (
+      profile?.role === "admin" ||
+      (!!process.env.NEXT_PUBLIC_ADMIN_UID && user.uid === process.env.NEXT_PUBLIC_ADMIN_UID)
+    );
   const [currentView, setCurrentView] = useState("lobby");
   const [selectedGameType, setSelectedGameType] =
     useState<GameVariant>("texas-holdem");

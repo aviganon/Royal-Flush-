@@ -6,12 +6,19 @@ import { DEFAULT_CHIPS } from "@/lib/firebase/user-profile";
 export const runtime = "nodejs";
 
 async function verifyAdmin(request: Request): Promise<{ uid: string } | null> {
-  const adminUid = process.env.ADMIN_UID;
-  if (!adminUid) return null;
   const session = await verifyIdTokenFromHeader(request.headers.get("authorization"));
   if (!session) return null;
-  if (session.uid !== adminUid) return null;
-  return session;
+
+  const adminUid = process.env.ADMIN_UID;
+  if (adminUid && session.uid === adminUid) return session;
+
+  // גיבוי: בדוק role: "admin" ב-Firestore
+  const db = getAdminDb();
+  if (db) {
+    const snap = await db.collection("users").doc(session.uid).get();
+    if (snap.exists && snap.data()?.role === "admin") return session;
+  }
+  return null;
 }
 
 /** GET /api/admin/users — רשימת כל המשתמשים מ-Firestore */

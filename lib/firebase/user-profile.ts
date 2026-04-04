@@ -13,6 +13,7 @@ export type UserProfile = {
   email: string | null;
   photoURL: string | null;
   chips: number;
+  role?: "admin" | "user";
   createdAt?: unknown;
 };
 
@@ -40,6 +41,7 @@ export function subscribeUserProfile(
       email: (d.email as string) ?? null,
       photoURL: (d.photoURL as string) ?? null,
       chips: typeof d.chips === "number" ? d.chips : DEFAULT_CHIPS,
+      role: (d.role as "admin" | "user") ?? "user",
       createdAt: d.createdAt,
     });
   });
