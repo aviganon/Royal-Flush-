@@ -184,8 +184,6 @@ export default function PokerApp() {
         onViewChange={handleMainViewChange}
         walletBalance={chipBalance}
         onLogout={handleLogout}
-        onOpenGameSelector={() => setShowGameSelector(true)}
-        selectedGameType={selectedGameType}
         isAdmin={isAdmin}
       />
 

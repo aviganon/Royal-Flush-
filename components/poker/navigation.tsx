@@ -10,8 +10,6 @@ import {
   Menu,
   X,
   Spade,
-  Gamepad2,
-  ChevronDown,
   Crown,
 } from "lucide-react";
 import { useState } from "react";
@@ -22,27 +20,15 @@ interface NavigationProps {
   onViewChange: (view: string) => void;
   walletBalance: number;
   onLogout?: () => void;
-  onOpenGameSelector?: () => void;
-  selectedGameType?: string;
   isAdmin?: boolean;
 }
 
-const gameTypeNames: Record<string, string> = {
-  "texas-holdem": "טקסס הולדם",
-  "omaha": "אומהה",
-  "omaha-hi-lo": "אומהה היי-לואו",
-  "short-deck": "שורט דק",
-  "5-card-omaha": "אומהה 5 קלפים",
-  "7-card-stud": "סטאד 7 קלפים",
-};
 
 export function Navigation({
   currentView,
   onViewChange,
   walletBalance,
   onLogout,
-  onOpenGameSelector,
-  selectedGameType = "texas-holdem",
   isAdmin = false,
 }: NavigationProps) {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -124,21 +110,6 @@ export function Navigation({
 
           {/* Wallet & Actions */}
           <div className="flex items-center gap-2 lg:gap-4">
-            {/* Game Type Selector Button */}
-            {onOpenGameSelector && (
-              <motion.button
-                onClick={onOpenGameSelector}
-                className="hidden sm:flex items-center gap-2 px-3 lg:px-4 py-2 rounded-xl glass-effect border border-emerald/30 hover:border-emerald/50 transition-all"
-                whileHover={{ scale: 1.02 }}
-                whileTap={{ scale: 0.98 }}
-              >
-                <Gamepad2 className="w-4 h-4 text-emerald" />
-                <span className="text-sm font-medium text-emerald">
-                  {gameTypeNames[selectedGameType] || "בחר משחק"}
-                </span>
-                <ChevronDown className="w-3 h-3 text-emerald" />
-              </motion.button>
-            )}
 
             <motion.div
               className="hidden sm:flex items-center gap-2 px-3 lg:px-4 py-2 rounded-xl glass-effect border border-gold/20"
@@ -215,21 +186,6 @@ export function Navigation({
               {item.label}
             </motion.button>
           ))}
-          {/* Game Selector for Mobile */}
-          {onOpenGameSelector && (
-            <motion.button
-              onClick={() => {
-                onOpenGameSelector();
-                setMobileMenuOpen(false);
-              }}
-              className="w-full flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium bg-emerald/10 text-emerald border border-emerald/30"
-              whileTap={{ scale: 0.98 }}
-            >
-              <Gamepad2 className="w-5 h-5" />
-              <span>סוג משחק: {gameTypeNames[selectedGameType]}</span>
-              <ChevronDown className="w-4 h-4 mr-auto" />
-            </motion.button>
-          )}
           <div className="pt-4 border-t border-border flex items-center justify-between">
             <div className="flex items-center gap-2 text-gold">
               <Wallet className="w-4 h-4" />
