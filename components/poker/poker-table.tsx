@@ -27,7 +27,7 @@ import type { Card } from "@/lib/poker/types";
 const DealerCharacter = memo(function DealerCharacter() {
   return (
     <motion.div
-      className="absolute top-[4%] left-1/2 -translate-x-1/2 z-30 pointer-events-none"
+      className="absolute top-[8%] left-1/2 -translate-x-1/2 z-30 pointer-events-none"
       initial={{ y: -80, opacity: 0 }}
       animate={{ y: 0, opacity: 1 }}
       transition={{ delay: 0.6, type: "spring", stiffness: 90 }}
