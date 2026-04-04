@@ -351,3 +351,19 @@
   top: -6px;
   opacity: 0.4;
 }
+
+/* ── iOS / PWA safe-area helpers ───────────────────────────────────────────── */
+/* Applied on fixed bars so content isn't hidden under the iPhone notch,
+   Dynamic Island, or home-indicator when running as a PWA (standalone).     */
+.pb-safe {
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+.pt-safe {
+  padding-top: env(safe-area-inset-top, 0px);
+}
+
+/* The nav grows to include the top safe area so status-bar is visible */
+nav.pwa-nav {
+  padding-top: env(safe-area-inset-top, 0px);
+}

@@ -27,7 +27,7 @@ import type { Card } from "@/lib/poker/types";
 const DealerCharacter = memo(function DealerCharacter() {
   return (
     <motion.div
-      className="absolute top-[8%] left-1/2 -translate-x-1/2 z-30 pointer-events-none"
+      className="absolute top-[10%] sm:top-[8%] left-1/2 -translate-x-1/2 z-30 pointer-events-none"
       initial={{ y: -80, opacity: 0 }}
       animate={{ y: 0, opacity: 1 }}
       transition={{ delay: 0.6, type: "spring", stiffness: 90 }}
@@ -756,8 +756,8 @@ export function PokerTable({
         </div>
       )}
 
-      {/* pb-32 leaves room for the fixed action bar (~80px) so the bottom seat is never hidden */}
-      <div className="relative z-10 flex-1 flex items-center justify-center p-4 pb-32 min-h-[calc(100vh-180px)]">
+      {/* pb-40 leaves room for the fixed action bar so the bottom seat is never hidden */}
+      <div className="relative z-10 flex-1 flex items-center justify-center p-4 pb-40 min-h-[calc(100vh-180px)]">
         <div className="relative w-full max-w-4xl aspect-[16/10]">
           <motion.div
             initial={{ scale: 0.8, opacity: 0 }}
@@ -964,7 +964,8 @@ export function PokerTable({
         const myHole = "cards" in me ? (me.cards as Card[]) : [];
         return myHole.length > 0 ? (
           <motion.div
-            className="fixed bottom-40 left-1/2 -translate-x-1/2 z-20 flex gap-2 sm:gap-3"
+            className="fixed left-1/2 -translate-x-1/2 z-20 flex gap-2 sm:gap-3"
+            style={{ bottom: "calc(10rem + env(safe-area-inset-bottom, 0px))" }}
             initial={{ y: 40, opacity: 0 }}
             animate={{ y: 0, opacity: 1 }}
             transition={{ delay: 0.4, type: "spring", damping: 18 }}
@@ -990,7 +991,7 @@ export function PokerTable({
         {/* Blur backdrop */}
         <div className="absolute inset-0 bg-charcoal/80 backdrop-blur-xl border-t border-white/10" />
 
-        <div className="relative max-w-3xl mx-auto px-4 py-3">
+        <div className="relative max-w-3xl mx-auto px-3 sm:px-4 py-3 pb-safe">
 
           {/* Slider row */}
           <AnimatePresence>
@@ -1046,7 +1047,7 @@ export function PokerTable({
           </AnimatePresence>
 
           {/* Action buttons */}
-          <div className="flex gap-2 sm:gap-3 justify-center">
+          <div className="flex flex-wrap gap-2 sm:gap-3 justify-center">
 
             {/* פורש */}
             <motion.button
@@ -1170,7 +1171,7 @@ export function PokerTable({
             initial={{ x: 300, opacity: 0 }}
             animate={{ x: 0, opacity: 1 }}
             exit={{ x: 300, opacity: 0 }}
-            className="fixed top-20 left-0 bottom-40 w-72 glass-effect border-r border-border p-4 z-20"
+            className="fixed top-16 left-0 bottom-40 w-[min(288px,85vw)] glass-effect border-r border-border p-4 z-20"
           >
             <h3 className="text-lg font-semibold text-gold mb-4">צ&apos;אט</h3>
             <div className="space-y-3 h-[calc(100%-120px)] overflow-y-auto">
@@ -1211,7 +1212,7 @@ export function PokerTable({
             initial={{ x: -300, opacity: 0 }}
             animate={{ x: 0, opacity: 1 }}
             exit={{ x: -300, opacity: 0 }}
-            className="fixed top-20 right-0 bottom-40 w-72 glass-effect border-l border-border p-4 z-20"
+            className="fixed top-16 right-0 bottom-40 w-[min(288px,85vw)] glass-effect border-l border-border p-4 z-20"
           >
             <h3 className="text-lg font-semibold text-gold mb-4">היסטוריה</h3>
             <div className="space-y-2 overflow-y-auto max-h-[calc(100vh-200px)]">
