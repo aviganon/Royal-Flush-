@@ -20,6 +20,69 @@ import { getAvatarById } from "@/components/poker/avatar-selector";
 import type { TablePublicView } from "@/lib/poker/holdem-engine";
 import type { Card } from "@/lib/poker/types";
 
+// ─── Module-level helpers ────────────────────────────────────────────────────
+
+const formatChips = (amount: number): string => {
+  if (amount >= 1_000_000_000) return `$${(amount / 1_000_000_000).toFixed(1)}B`;
+  if (amount >= 1_000_000) return `$${(amount / 1_000_000).toFixed(1)}M`;
+  if (amount >= 1_000) return `$${(amount / 1_000).toFixed(1)}K`;
+  return `$${amount.toLocaleString()}`;
+};
+
+const CONFETTI_COLORS = ["#d4af37", "#10b981", "#ef4444", "#3b82f6", "#a855f7"];
+
+const WinCelebration = memo(function WinCelebration() {
+  const particles = useMemo(
+    () =>
+      [...Array(50)].map((_, i) => ({
+        color: CONFETTI_COLORS[i % CONFETTI_COLORS.length],
+        left: `${(i * 7.3) % 100}%`,
+        rotate: (i * 83) % 720,
+        duration: 2.5 + (i % 5) * 0.3,
+        delay: (i % 10) * 0.08,
+      })),
+    [],
+  );
+  return (
+    <div className="fixed inset-0 pointer-events-none z-50">
+      {particles.map((p, i) => (
+        <motion.div
+          key={i}
+          className="absolute w-3 h-3 rounded-sm"
+          style={{ backgroundColor: p.color, left: p.left }}
+          initial={{ y: -20, opacity: 1, rotate: 0 }}
+          animate={{ y: "100vh", opacity: 0, rotate: p.rotate }}
+          transition={{ duration: p.duration, delay: p.delay, ease: "easeIn" }}
+        />
+      ))}
+    </div>
+  );
+});
+
+const AllInBanner = memo(function AllInBanner({ onDone }: { onDone: () => void }) {
+  useEffect(() => {
+    const t = setTimeout(onDone, 1800);
+    return () => clearTimeout(t);
+  }, [onDone]);
+  return (
+    <motion.div
+      className="fixed inset-0 pointer-events-none z-50 flex items-center justify-center"
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+    >
+      <motion.div
+        className="text-6xl sm:text-8xl font-extrabold text-gold font-[family-name:var(--font-orbitron)] drop-shadow-2xl"
+        initial={{ scale: 0, rotate: -12 }}
+        animate={{ scale: [0, 1.4, 1], rotate: [0, 8, 0] }}
+        transition={{ duration: 0.7, type: "spring" }}
+      >
+        ALL IN!
+      </motion.div>
+    </motion.div>
+  );
+});
+
 // ─── Module-level constants ──────────────────────────────────────────────────
 const suitSymbolsMap = {
   spades: "♠",
@@ -158,6 +221,67 @@ const TurnTimer = memo(function TurnTimer({
   );
 });
 
+/**
+ * SvgTimer — circular progress ring drawn around the avatar.
+ * Isolated so it ticks independently of the table.
+ */
+const SvgTimer = memo(function SvgTimer({
+  deadline,
+  total = 30,
+  size = 60,
+}: {
+  deadline: number;
+  total?: number;
+  size?: number;
+}) {
+  const [timeLeft, setTimeLeft] = useState(() =>
+    Math.max(0, Math.ceil((deadline - Date.now()) / 1000)),
+  );
+  useEffect(() => {
+    const t = setInterval(
+      () => setTimeLeft(Math.max(0, Math.ceil((deadline - Date.now()) / 1000))),
+      250,
+    );
+    return () => clearInterval(t);
+  }, [deadline]);
+
+  const r = size / 2 - 4;
+  const circ = 2 * Math.PI * r;
+  const dash = Math.min(1, timeLeft / total) * circ;
+  const stroke = timeLeft <= 5 ? "#ef4444" : timeLeft <= 10 ? "#eab308" : "#22c55e";
+
+  return (
+    <svg
+      className="absolute -inset-2 pointer-events-none"
+      width={size + 8}
+      height={size + 8}
+      style={{ top: -4, left: -4 }}
+    >
+      <circle
+        cx={(size + 8) / 2}
+        cy={(size + 8) / 2}
+        r={r}
+        fill="none"
+        stroke="rgba(255,255,255,0.12)"
+        strokeWidth={3.5}
+      />
+      <motion.circle
+        cx={(size + 8) / 2}
+        cy={(size + 8) / 2}
+        r={r}
+        fill="none"
+        stroke={stroke}
+        strokeWidth={3.5}
+        strokeLinecap="round"
+        strokeDasharray={`${dash} ${circ}`}
+        transform={`rotate(-90 ${(size + 8) / 2} ${(size + 8) / 2})`}
+        animate={{ strokeDasharray: `${dash} ${circ}`, stroke }}
+        transition={{ duration: 0.25 }}
+      />
+    </svg>
+  );
+});
+
 interface PokerTableProps {
   gameType: "holdem" | "omaha";
   onLeaveTable: () => void;
@@ -216,6 +340,19 @@ export function PokerTable({
   const [showChat, setShowChat] = useState(false);
   const [showHistory, setShowHistory] = useState(false);
   const [chatDraft, setChatDraft] = useState("");
+  const [showWin, setShowWin] = useState(false);
+  const [showAllIn, setShowAllIn] = useState(false);
+
+  // Win celebration on hand finish
+  const prevHandNumber = useMemo(() => state?.handNumber, [state?.handNumber]);
+  useEffect(() => {
+    if (state?.handFinished) {
+      setShowWin(true);
+      const t = setTimeout(() => setShowWin(false), 3500);
+      return () => clearTimeout(t);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [state?.handFinished, prevHandNumber]);
 
   const me = useMemo((): SeatedPlayer | null => {
     if (!state) return null;
@@ -309,8 +446,27 @@ export function PokerTable({
 
   return (
     <div className="min-h-screen pt-16 lg:pt-20 relative overflow-hidden">
-      <div className="absolute inset-0 bg-gradient-to-b from-charcoal via-charcoal-light to-charcoal" />
-      <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[800px] h-[800px] bg-emerald/5 rounded-full blur-3xl" />
+      {/* Ocean / beach background */}
+      <div className="absolute inset-0 bg-gradient-to-b from-sky-900 via-cyan-900 to-blue-950" />
+      <motion.div
+        className="absolute top-0 left-0 right-0 h-40 bg-gradient-to-b from-cyan-600/30 to-transparent pointer-events-none"
+        animate={{ y: [0, 10, 0] }}
+        transition={{ duration: 4, repeat: Infinity, ease: "easeInOut" }}
+      />
+      {[...Array(12)].map((_, i) => (
+        <motion.div
+          key={i}
+          className="absolute w-2 h-2 rounded-full bg-white/15 pointer-events-none"
+          style={{ left: `${(i * 8.7) % 100}%`, top: `${(i * 13.3) % 100}%` }}
+          animate={{ y: [0, -28, 0], opacity: [0.15, 0.45, 0.15] }}
+          transition={{ duration: 3 + (i % 3), repeat: Infinity, delay: (i % 5) * 0.6 }}
+        />
+      ))}
+
+      {/* Win celebration confetti */}
+      <AnimatePresence>{showWin && <WinCelebration />}</AnimatePresence>
+      {/* All-In banner */}
+      <AnimatePresence>{showAllIn && <AllInBanner onDone={() => setShowAllIn(false)} />}</AnimatePresence>
 
       {!connected && (
         <div className="fixed top-20 left-1/2 -translate-x-1/2 z-50 flex items-center gap-2 px-4 py-2 rounded-lg bg-destructive/20 border border-destructive/40 text-sm">
@@ -413,50 +569,27 @@ export function PokerTable({
             initial={{ scale: 0.8, opacity: 0 }}
             animate={{ scale: 1, opacity: 1 }}
             transition={{ duration: 0.8, type: "spring" }}
-            className="absolute inset-[10%] rounded-[50%] poker-table-gradient border-8 border-amber-900/80 shadow-2xl"
+            className="absolute inset-[8%] rounded-[50%]"
             style={{
+              background: "linear-gradient(180deg, #8B7355 0%, #6B5344 20%, #4A3728 100%)",
               boxShadow:
-                "inset 0 0 100px rgba(0,0,0,0.5), 0 20px 60px rgba(0,0,0,0.5), 0 0 0 20px rgba(30,20,10,0.8)",
+                "inset 0 -20px 60px rgba(0,0,0,0.5), 0 30px 80px rgba(0,0,0,0.6), 0 0 0 8px #C9A227, 0 0 0 12px #8B6914, 0 0 0 16px rgba(0,0,0,0.3)",
             }}
           >
-            <div className="absolute inset-2 rounded-[50%] border border-emerald-light/20" />
-
-            <motion.div
-              className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2"
-              initial={{ scale: 0 }}
-              animate={{ scale: 1 }}
-              transition={{ delay: 0.5 }}
+            {/* Felt interior */}
+            <div
+              className="absolute inset-4 rounded-[50%]"
+              style={{
+                background: "radial-gradient(ellipse at center, #1B5E20 0%, #145214 50%, #0D3D0D 100%)",
+                boxShadow: "inset 0 0 100px rgba(0,0,0,0.4)",
+              }}
             >
-              <div className="text-center">
-                <motion.div
-                  className="text-2xl sm:text-3xl lg:text-4xl font-bold text-gold font-[family-name:var(--font-orbitron)] mb-2"
-                  animate={{ scale: [1, 1.05, 1] }}
-                  transition={{ duration: 2, repeat: Infinity }}
-                >
-                  ${state.pot.toLocaleString()}
-                </motion.div>
-                <div className="flex justify-center gap-1">
-                  {[...Array(Math.min(5, Math.max(1, Math.floor(state.pot / 50))))].map(
-                    (_, i) => (
-                      <motion.div
-                        key={i}
-                        className="w-6 h-6 sm:w-8 sm:h-8 rounded-full gold-gradient shadow-lg"
-                        initial={{ y: -50, opacity: 0 }}
-                        animate={{ y: 0, opacity: 1 }}
-                        transition={{ delay: 0.3 + i * 0.1, type: "spring" }}
-                        style={{
-                          boxShadow: "0 4px 8px rgba(0,0,0,0.3)",
-                          marginTop: `-${i * 3}px`,
-                        }}
-                      />
-                    ),
-                  )}
-                </div>
-              </div>
-            </motion.div>
+              <div className="absolute inset-6 rounded-[50%] border border-yellow-600/30" />
+            </div>
 
+            {/* Community Cards — upper half of felt */}
             <motion.div
-              className="absolute top-[35%] left-1/2 -translate-x-1/2 flex gap-2"
+              className="absolute top-[26%] left-1/2 -translate-x-1/2 flex gap-2 sm:gap-3 z-10"
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               transition={{ delay: 0.8 }}
@@ -465,15 +598,45 @@ export function PokerTable({
                 {state.board.map((card, index) => (
                   <motion.div
                     key={`${state.handNumber}-${index}-${card.value}${card.suit}`}
-                    initial={{ rotateY: 180, scale: 0 }}
-                    animate={{ rotateY: 0, scale: 1 }}
+                    initial={{ rotateY: 180, scale: 0, y: -30 }}
+                    animate={{ rotateY: 0, scale: 1, y: 0 }}
                     exit={{ scale: 0 }}
-                    transition={{ delay: index * 0.15, type: "spring" }}
+                    transition={{ delay: index * 0.15, type: "spring", stiffness: 100 }}
                   >
                     <PlayingCard card={card} index={index} size="md" />
                   </motion.div>
                 ))}
               </AnimatePresence>
+            </motion.div>
+
+            {/* Pot — teal glowing box, lower half */}
+            <motion.div
+              className="absolute top-[60%] left-1/2 -translate-x-1/2 -translate-y-1/2 z-20"
+              initial={{ scale: 0 }}
+              animate={{ scale: 1 }}
+              transition={{ delay: 0.5 }}
+            >
+              <motion.div
+                className="px-5 py-1.5 rounded-xl bg-gradient-to-r from-teal-800 via-teal-600 to-teal-800 border-2 border-teal-400 shadow-2xl"
+                animate={{
+                  boxShadow: [
+                    "0 0 18px rgba(20,184,166,0.35)",
+                    "0 0 36px rgba(20,184,166,0.55)",
+                    "0 0 18px rgba(20,184,166,0.35)",
+                  ],
+                }}
+                transition={{ duration: 2, repeat: Infinity }}
+              >
+                <motion.span
+                  key={state.pot}
+                  className="text-lg sm:text-xl font-bold text-white font-[family-name:var(--font-orbitron)]"
+                  initial={{ scale: 1.25 }}
+                  animate={{ scale: 1 }}
+                  transition={{ duration: 0.3 }}
+                >
+                  {formatChips(state.pot)}
+                </motion.span>
+              </motion.div>
             </motion.div>
           </motion.div>
 
@@ -502,41 +665,57 @@ export function PokerTable({
                     {player.name}{isSelf ? " ★" : ""}
                   </div>
 
-                  {/* אווטאר */}
+                  {/* אווטאר + טיימר SVG */}
                   <motion.div
                     className="relative"
-                    animate={
-                      player.isTurn
-                        ? { boxShadow: ["0 0 0 3px rgba(212,175,55,0.5)", "0 0 0 7px rgba(212,175,55,0.15)", "0 0 0 3px rgba(212,175,55,0.5)"] }
-                        : {}
-                    }
-                    transition={{ duration: 1.2, repeat: Infinity }}
-                    style={{ borderRadius: "9999px" }}
+                    whileHover={{ scale: 1.05 }}
                   >
+                    {/* Glow ring on turn */}
+                    {player.isTurn && (
+                      <motion.div
+                        className="absolute -inset-1 rounded-full"
+                        animate={{
+                          boxShadow: [
+                            "0 0 18px 4px rgba(212,175,55,0.4)",
+                            "0 0 36px 10px rgba(212,175,55,0.65)",
+                            "0 0 18px 4px rgba(212,175,55,0.4)",
+                          ],
+                        }}
+                        transition={{ duration: 1.4, repeat: Infinity }}
+                      />
+                    )}
+
+                    {/* Circular SVG timer */}
+                    {player.isTurn && state.turnDeadline && (
+                      <SvgTimer deadline={state.turnDeadline} size={isSelf ? 72 : 60} />
+                    )}
+
                     {/* Dealer chip */}
                     {player.isDealer && (
                       <motion.div
-                        className="absolute -top-1 -right-1 w-5 h-5 rounded-full bg-gold text-charcoal text-[9px] font-bold flex items-center justify-center z-20 shadow-lg"
-                        animate={{ scale: [1, 1.15, 1] }}
+                        className="absolute -bottom-1 -right-1 w-6 h-6 rounded-full bg-white border-2 border-gray-300 text-gray-800 text-[10px] font-bold flex items-center justify-center z-20 shadow-lg"
+                        animate={{ scale: [1, 1.1, 1] }}
                         transition={{ duration: 2, repeat: Infinity }}
                       >
                         D
                       </motion.div>
                     )}
 
-                    {svgAv ? (
-                      <div className={`w-11 h-11 sm:w-13 sm:h-13 rounded-full overflow-hidden border-2 shadow-lg ${
-                        player.isTurn ? "border-gold" : isSelf ? "border-gold/50" : "border-white/20"
-                      }`} style={{ width: "clamp(40px,5vw,52px)", height: "clamp(40px,5vw,52px)" }}>
-                        {svgAv.character}
+                    {/* Avatar */}
+                    <div
+                      className={`rounded-full overflow-hidden flex items-center justify-center shadow-lg p-0.5 ${
+                        player.isTurn
+                          ? "bg-gradient-to-br from-yellow-400 via-gold to-yellow-600"
+                          : !player.folded
+                          ? "bg-gradient-to-br from-red-500 via-red-600 to-red-700"
+                          : "bg-gradient-to-br from-gray-600 to-gray-700"
+                      }`}
+                      style={{ width: isSelf ? "clamp(52px,6vw,72px)" : "clamp(44px,5vw,60px)", height: isSelf ? "clamp(52px,6vw,72px)" : "clamp(44px,5vw,60px)" }}
+                    >
+                      <div className="w-full h-full rounded-full overflow-hidden bg-charcoal flex items-center justify-center text-2xl">
+                        {svgAv ? svgAv.character : (player.avatar || "🎭")}
                       </div>
-                    ) : (
-                      <div className={`w-11 h-11 sm:w-12 sm:h-12 rounded-full flex items-center justify-center text-2xl border-2 shadow-lg bg-charcoal ${
-                        player.isTurn ? "border-gold" : isSelf ? "border-gold/50" : "border-white/20"
-                      }`}>
-                        {player.avatar || "🎭"}
-                      </div>
-                    )}
+                    </div>
                   </motion.div>
 
                   {/* צ'יפים — מתחת לאווטאר */}
@@ -758,6 +937,7 @@ export function PokerTable({
               onClick={() => {
                 setBetAmount([raiseRange.max]);
                 sendAction("raise", raiseRange.max);
+                setShowAllIn(true);
               }}
               disabled={!isMyTurn || state.handFinished || raiseRange.min > raiseRange.max}
               className={`relative flex-1 max-w-[120px] flex flex-col items-center justify-center gap-1 py-3 px-2 rounded-2xl font-bold text-sm transition-all select-none overflow-hidden
