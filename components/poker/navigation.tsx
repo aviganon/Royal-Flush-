@@ -11,6 +11,7 @@ import {
   X,
   Spade,
   Crown,
+  UserPlus,
 } from "lucide-react";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
@@ -24,6 +25,9 @@ interface NavigationProps {
   isAdmin?: boolean;
   onOpenAvatarSelector?: () => void;
   selectedAvatar?: Avatar;
+  onOpenFriends?: () => void;
+  friendRequestCount?: number;
+  friendOnlineCount?: number;
 }
 
 export function Navigation({
@@ -34,6 +38,9 @@ export function Navigation({
   isAdmin = false,
   onOpenAvatarSelector,
   selectedAvatar,
+  onOpenFriends,
+  friendRequestCount = 0,
+  friendOnlineCount = 0,
 }: NavigationProps) {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
@@ -127,6 +134,31 @@ export function Navigation({
               </motion.button>
             )}
 
+            {/* Friends Button */}
+            {onOpenFriends && (
+              <motion.button
+                onClick={onOpenFriends}
+                className="relative p-2 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-all shrink-0"
+                whileHover={{ scale: 1.08 }}
+                whileTap={{ scale: 0.94 }}
+                title="חברים"
+              >
+                <UserPlus className="w-5 h-5" />
+                {friendRequestCount > 0 && (
+                  <motion.span
+                    initial={{ scale: 0 }}
+                    animate={{ scale: 1 }}
+                    className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-gold text-charcoal text-[9px] font-bold flex items-center justify-center"
+                  >
+                    {friendRequestCount}
+                  </motion.span>
+                )}
+                {friendOnlineCount > 0 && friendRequestCount === 0 && (
+                  <span className="absolute -top-0.5 -right-0.5 w-2.5 h-2.5 rounded-full bg-green-400 border border-background" />
+                )}
+              </motion.button>
+            )}
+
             <motion.div
               className="hidden sm:flex items-center gap-2 px-3 lg:px-4 py-2 rounded-xl glass-effect border border-gold/20"
               whileHover={{ scale: 1.02, borderColor: "rgba(212, 175, 55, 0.4)" }}
@@ -213,6 +245,26 @@ export function Navigation({
                 {selectedAvatar.character}
               </div>
               <span>שנה אווטר</span>
+            </motion.button>
+          )}
+
+          {/* Friends for Mobile */}
+          {onOpenFriends && (
+            <motion.button
+              onClick={() => { onOpenFriends(); setMobileMenuOpen(false); }}
+              className="w-full flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium text-muted-foreground hover:bg-muted"
+              whileTap={{ scale: 0.98 }}
+            >
+              <UserPlus className="w-5 h-5 shrink-0" />
+              <span>חברים</span>
+              {friendRequestCount > 0 && (
+                <span className="ml-auto text-xs bg-gold text-charcoal px-2 py-0.5 rounded-full font-bold">
+                  {friendRequestCount}
+                </span>
+              )}
+              {friendOnlineCount > 0 && (
+                <span className="ml-auto text-xs text-green-400">{friendOnlineCount} מחובר</span>
+              )}
             </motion.button>
           )}
           <div className="pt-4 border-t border-border flex items-center justify-between">

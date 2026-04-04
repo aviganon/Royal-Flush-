@@ -16,9 +16,12 @@ import {
 } from "@/components/poker/game-type-selector";
 import { AdminPanel } from "@/components/poker/admin-panel";
 import { UserSettings } from "@/components/poker/user-settings";
+import { FriendsPanel } from "@/components/poker/friends-panel";
 import { AvatarSelector, type Avatar, avatars } from "@/components/poker/avatar-selector";
 import { useFirebaseAuth } from "@/components/providers/firebase-auth-provider";
 import { useWalletTransactions } from "@/hooks/use-wallet-transactions";
+import { usePresence } from "@/hooks/use-presence";
+import { useFriends } from "@/hooks/use-friends";
 import { Loader2 } from "lucide-react";
 
 function socketGameTypeFromVariant(v: GameVariant): "holdem" | "omaha" {
@@ -41,6 +44,7 @@ export default function PokerApp() {
     useState<GameVariant>("texas-holdem");
   const [showGameSelector, setShowGameSelector] = useState(false);
   const [showAvatarSelector, setShowAvatarSelector] = useState(false);
+  const [showFriends, setShowFriends] = useState(false);
   const [selectedAvatar, setSelectedAvatar] = useState<Avatar>(avatars[0]!);
   const [roomId, setRoomId] = useState("royal-holdem-1");
   const [tableBuyIn, setTableBuyIn] = useState(2000);
@@ -52,6 +56,14 @@ export default function PokerApp() {
   const [tableSocketGameType, setTableSocketGameType] = useState<"holdem" | "omaha">("holdem");
 
   const txRows = useWalletTransactions(user?.uid);
+
+  // Presence + Friends (only when logged in)
+  usePresence(user?.uid);
+  const { friends, requests, requestCount, onlineCount } = useFriends(
+    user?.uid,
+    getIdToken,
+  );
+  void friends; // used indirectly for online notifications
 
   const particlesRef = useRef(
     [...Array(12)].map(() => ({
@@ -199,6 +211,15 @@ export default function PokerApp() {
         selectedAvatarId={selectedAvatar.id}
       />
 
+      {user && (
+        <FriendsPanel
+          isOpen={showFriends}
+          onClose={() => setShowFriends(false)}
+          uid={user.uid}
+          getIdToken={getIdToken}
+        />
+      )}
+
       <Navigation
         currentView={currentView}
         onViewChange={handleMainViewChange}
@@ -207,6 +228,9 @@ export default function PokerApp() {
         isAdmin={isAdmin}
         onOpenAvatarSelector={() => setShowAvatarSelector(true)}
         selectedAvatar={selectedAvatar}
+        onOpenFriends={() => setShowFriends(true)}
+        friendRequestCount={requestCount}
+        friendOnlineCount={onlineCount}
       />
 
       <main className="relative z-10">

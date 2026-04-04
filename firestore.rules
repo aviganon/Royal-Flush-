@@ -1,18 +1,43 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    /** אידמפוטנטיות Stripe — נכתב רק מ-Admin SDK */
+    /** אידמפוטנטיות Stripe — Admin SDK בלבד */
     match /stripe_webhook_events/{eventId} {
       allow read, write: if false;
     }
 
     match /users/{userId} {
       allow read: if request.auth != null && request.auth.uid == userId;
-      allow write: if false;
+      allow create, delete: if false;
+      // לקוח מעדכן רק lastSeen — שאר השדות דרך Admin SDK
+      allow update: if request.auth != null && request.auth.uid == userId
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['lastSeen']);
     }
+
     match /users/{userId}/transactions/{txId} {
       allow read: if request.auth != null && request.auth.uid == userId;
       allow write: if false;
+    }
+
+    /** חברים — נכתב מ-Admin SDK בלבד, נקרא ע"י הבעלים */
+    match /users/{userId}/friends/{friendId} {
+      allow read: if request.auth != null && request.auth.uid == userId;
+      allow write: if false;
+    }
+
+    /** בקשות חברות — כל משתמש יכול לשלוח לאחר, הנמען קורא/מוחק */
+    match /users/{userId}/friendRequests/{fromUserId} {
+      allow read: if request.auth != null && request.auth.uid == userId;
+      allow create: if request.auth != null && request.auth.uid == fromUserId;
+      allow delete: if request.auth != null
+        && (request.auth.uid == userId || request.auth.uid == fromUserId);
+      allow update: if false;
+    }
+
+    /** נוכחות — כל מחובר קורא, כל אחד כותב רק את שלו */
+    match /presence/{userId} {
+      allow read: if request.auth != null;
+      allow write: if request.auth != null && request.auth.uid == userId;
     }
   }
 }
