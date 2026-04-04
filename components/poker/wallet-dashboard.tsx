@@ -160,26 +160,42 @@ export function WalletDashboard({
                       </DialogHeader>
                       <div className="space-y-6 pt-4">
                         <p className="text-sm text-muted-foreground text-right">
-                          תשלום מאובטח דרך Stripe (כרטיס אשראי). $1 = 100 צ&apos;יפים
-                          במשחק.
+                          $1 = 100 צ&apos;יפים. תשלום מאובטח דרך Stripe.
                         </p>
                         <div className="grid grid-cols-2 gap-2">
                           {STRIPE_PACKS_USD.map((usd) => (
                             <Button
                               key={usd}
                               variant="outline"
-                              className="h-14 border-gold/40 text-gold"
+                              className="h-14 border-gold/40 text-gold hover:bg-gold/10"
                               disabled={checkoutLoading !== null}
                               onClick={() => void startStripeCheckout(usd)}
                             >
-                              {checkoutLoading === usd ? "…" : `$${usd}`}
+                              {checkoutLoading === usd ? (
+                                <span className="animate-pulse">…</span>
+                              ) : (
+                                <span>
+                                  <span className="block text-lg font-bold">${usd}</span>
+                                  <span className="block text-xs text-muted-foreground">
+                                    {(usd * 100).toLocaleString()} ✦
+                                  </span>
+                                </span>
+                              )}
                             </Button>
                           ))}
                         </div>
-                        <div className="flex items-center gap-2 p-3 rounded-lg bg-muted/50">
-                          <CreditCard className="w-5 h-5 text-gold" />
+                        <div className="flex items-center gap-3 p-3 rounded-lg bg-muted/50 border border-border">
+                          <CreditCard className="w-4 h-4 text-gold shrink-0" />
                           <span className="text-sm text-muted-foreground">
-                            Stripe · כרטיס אשראי
+                            כרטיס אשראי
+                          </span>
+                          <span className="text-muted-foreground/40">·</span>
+                          <span className="text-sm font-medium text-foreground">
+                             Apple Pay
+                          </span>
+                          <span className="text-muted-foreground/40">·</span>
+                          <span className="text-sm text-muted-foreground">
+                            Google Pay
                           </span>
                         </div>
                       </div>

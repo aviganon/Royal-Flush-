@@ -39,13 +39,14 @@ export async function POST(request: Request) {
   const checkout = await stripe.checkout.sessions.create({
     mode: "payment",
     customer_email: typeof body.email === "string" ? body.email : undefined,
+    // ללא payment_method_types → Stripe Checkout מציג אוטומטית Apple Pay / Google Pay / כרטיס
     line_items: [
       {
         price_data: {
           currency: "usd",
           product_data: {
             name: `Royal Flush — ${chipsToGrant.toLocaleString()} צ'יפים`,
-            description: "יתרה למשחק (לא מהווה הימור עם כסף אמיתי מחוץ למסגרת החוק המקומית)",
+            description: "יתרה למשחק פוקר",
           },
           unit_amount: amountUsd * 100,
         },
