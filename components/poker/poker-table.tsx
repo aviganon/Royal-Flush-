@@ -13,6 +13,7 @@ import {
   ChevronRight,
   WifiOff,
   Loader2,
+  Gift,
 } from "lucide-react";
 import { usePokerSocket } from "@/hooks/use-poker-socket";
 import { getPokerSocketUrl } from "@/lib/poker/socket-url";
@@ -21,6 +22,131 @@ import type { TablePublicView } from "@/lib/poker/holdem-engine";
 import type { Card } from "@/lib/poker/types";
 
 // ─── Module-level helpers ────────────────────────────────────────────────────
+
+/** Professional dealer SVG character – purely decorative, no real-data deps */
+const DealerCharacter = memo(function DealerCharacter() {
+  return (
+    <motion.div
+      className="absolute top-[4%] left-1/2 -translate-x-1/2 z-30 pointer-events-none"
+      initial={{ y: -80, opacity: 0 }}
+      animate={{ y: 0, opacity: 1 }}
+      transition={{ delay: 0.6, type: "spring", stiffness: 90 }}
+    >
+      <div className="flex flex-col items-center">
+        <motion.div
+          className="relative"
+          animate={{ y: [0, -4, 0] }}
+          transition={{ duration: 4, repeat: Infinity, ease: "easeInOut" }}
+        >
+          {/* Outer glow ring */}
+          <motion.div
+            className="absolute -inset-3 rounded-full pointer-events-none"
+            animate={{
+              boxShadow: [
+                "0 0 28px 8px rgba(212,175,55,0.18), 0 0 56px 18px rgba(16,185,129,0.08)",
+                "0 0 40px 14px rgba(212,175,55,0.38), 0 0 76px 28px rgba(16,185,129,0.18)",
+                "0 0 28px 8px rgba(212,175,55,0.18), 0 0 56px 18px rgba(16,185,129,0.08)",
+              ],
+            }}
+            transition={{ duration: 3, repeat: Infinity }}
+          />
+
+          {/* Dealer SVG */}
+          <motion.svg
+            viewBox="0 0 120 140"
+            className="w-20 h-24 sm:w-24 sm:h-28 md:w-28 md:h-32 drop-shadow-2xl"
+            style={{ filter: "drop-shadow(0 8px 24px rgba(0,0,0,0.55))" }}
+          >
+            {/* Body / Suit */}
+            <path d="M30 140 L35 95 Q60 85 85 95 L90 140" fill="url(#dealerSuit)" />
+            <path d="M45 95 L60 105 L75 95" fill="#1a1a2e" stroke="#C9A227" strokeWidth="1" />
+            {/* Bow tie */}
+            <path d="M52 95 L60 100 L68 95 L64 100 L68 105 L60 100 L52 105 L56 100 Z" fill="#C9A227" />
+            {/* Neck */}
+            <ellipse cx="60" cy="88" rx="10" ry="8" fill="#E8C4A0" />
+            {/* Head */}
+            <ellipse cx="60" cy="55" rx="28" ry="32" fill="url(#dealerFace)" />
+            {/* Hair */}
+            <path d="M32 50 Q32 20 60 18 Q88 20 88 50 Q85 35 60 32 Q35 35 32 50" fill="#2C2C2C" />
+            <path d="M35 48 Q40 40 55 38 Q45 42 38 48" fill="#3d3d3d" />
+            <path d="M85 48 Q80 40 65 38 Q75 42 82 48" fill="#3d3d3d" />
+            {/* Eyes */}
+            <ellipse cx="48" cy="52" rx="6" ry="7" fill="white" />
+            <ellipse cx="72" cy="52" rx="6" ry="7" fill="white" />
+            <circle cx="48" cy="53" r="3.5" fill="#2C3E50" />
+            <circle cx="72" cy="53" r="3.5" fill="#2C3E50" />
+            <circle cx="49" cy="51" r="1.5" fill="white" />
+            <circle cx="73" cy="51" r="1.5" fill="white" />
+            {/* Eyebrows */}
+            <path d="M40 44 Q48 41 54 44" stroke="#2C2C2C" strokeWidth="2.5" fill="none" strokeLinecap="round" />
+            <path d="M66 44 Q72 41 80 44" stroke="#2C2C2C" strokeWidth="2.5" fill="none" strokeLinecap="round" />
+            {/* Nose */}
+            <path d="M60 55 L58 65 Q60 68 62 65 L60 55" fill="#D4A574" />
+            {/* Smile */}
+            <path d="M48 72 Q60 80 72 72" stroke="#8B4513" strokeWidth="2" fill="none" strokeLinecap="round" />
+            <path d="M50 73 Q60 78 70 73" fill="white" />
+            {/* Cheek shadow */}
+            <ellipse cx="42" cy="65" rx="5" ry="3" fill="#D4A574" opacity="0.3" />
+            <ellipse cx="78" cy="65" rx="5" ry="3" fill="#D4A574" opacity="0.3" />
+            {/* Rotating dealer chip */}
+            <motion.circle
+              cx="85" cy="100" r="8"
+              fill="url(#dealerChip)" stroke="#C9A227" strokeWidth="2"
+              animate={{ rotate: 360 }}
+              transition={{ duration: 8, repeat: Infinity, ease: "linear" }}
+              style={{ transformOrigin: "85px 100px" }}
+            />
+            <text x="85" y="103" textAnchor="middle" fill="white" fontSize="8" fontWeight="bold">D</text>
+            <defs>
+              <linearGradient id="dealerSuit" x1="0%" y1="0%" x2="0%" y2="100%">
+                <stop offset="0%" stopColor="#1a1a2e" />
+                <stop offset="100%" stopColor="#0f0f1a" />
+              </linearGradient>
+              <radialGradient id="dealerFace" cx="50%" cy="30%" r="70%">
+                <stop offset="0%" stopColor="#F5DEB3" />
+                <stop offset="100%" stopColor="#DEB887" />
+              </radialGradient>
+              <linearGradient id="dealerChip" x1="0%" y1="0%" x2="100%" y2="100%">
+                <stop offset="0%" stopColor="#10B981" />
+                <stop offset="100%" stopColor="#059669" />
+              </linearGradient>
+            </defs>
+          </motion.svg>
+
+          {/* Floating suit symbols */}
+          {(["♠", "♥", "♦", "♣"] as const).map((suit, i) => (
+            <motion.span
+              key={i}
+              className={`absolute text-base font-bold select-none ${
+                suit === "♥" || suit === "♦" ? "text-red-500" : "text-white"
+              }`}
+              style={{
+                top: `${10 + i * 20}%`,
+                left: i % 2 === 0 ? "-18px" : "calc(100% + 8px)",
+              }}
+              animate={{ y: [0, -10, 0], opacity: [0.3, 0.8, 0.3], scale: [0.8, 1, 0.8] }}
+              transition={{ duration: 2 + i * 0.5, repeat: Infinity, delay: i * 0.3 }}
+            >
+              {suit}
+            </motion.span>
+          ))}
+        </motion.div>
+
+        {/* Tip the Dealer button */}
+        <motion.button
+          className="pointer-events-auto mt-2 px-4 py-1.5 rounded-full bg-gradient-to-r from-emerald-700 to-emerald-600 text-white text-xs font-semibold border border-emerald-400/50 shadow-lg"
+          whileHover={{ scale: 1.08, boxShadow: "0 0 22px rgba(16,185,129,0.45)" }}
+          whileTap={{ scale: 0.94 }}
+        >
+          <span className="flex items-center gap-1.5">
+            <Gift className="w-3 h-3" />
+            Tip Dealer
+          </span>
+        </motion.button>
+      </div>
+    </motion.div>
+  );
+});
 
 const formatChips = (amount: number): string => {
   if (amount >= 1_000_000_000) return `$${(amount / 1_000_000_000).toFixed(1)}B`;
@@ -446,27 +572,84 @@ export function PokerTable({
 
   return (
     <div className="min-h-screen pt-16 lg:pt-20 relative overflow-hidden">
-      {/* Ocean / beach background */}
-      <div className="absolute inset-0 bg-gradient-to-b from-sky-900 via-cyan-900 to-blue-950" />
-      <motion.div
-        className="absolute top-0 left-0 right-0 h-40 bg-gradient-to-b from-cyan-600/30 to-transparent pointer-events-none"
-        animate={{ y: [0, 10, 0] }}
-        transition={{ duration: 4, repeat: Infinity, ease: "easeInOut" }}
-      />
-      {[...Array(12)].map((_, i) => (
+      {/* ── Futuristic premium background ── */}
+      <div className="absolute inset-0">
+        <div className="absolute inset-0 bg-gradient-to-b from-[#0a0a0f] via-[#0d1117] to-[#0a1628]" />
+
+        {/* Animated gradient orbs */}
         <motion.div
-          key={i}
-          className="absolute w-2 h-2 rounded-full bg-white/15 pointer-events-none"
-          style={{ left: `${(i * 8.7) % 100}%`, top: `${(i * 13.3) % 100}%` }}
-          animate={{ y: [0, -28, 0], opacity: [0.15, 0.45, 0.15] }}
-          transition={{ duration: 3 + (i % 3), repeat: Infinity, delay: (i % 5) * 0.6 }}
+          className="absolute top-0 left-0 w-[700px] h-[700px] rounded-full opacity-25 pointer-events-none"
+          style={{ background: "radial-gradient(circle, rgba(16,185,129,0.45) 0%, transparent 70%)", filter: "blur(80px)" }}
+          animate={{ x: [-200, 80, -200], y: [-80, 180, -80] }}
+          transition={{ duration: 20, repeat: Infinity, ease: "easeInOut" }}
         />
-      ))}
+        <motion.div
+          className="absolute bottom-0 right-0 w-[550px] h-[550px] rounded-full opacity-18 pointer-events-none"
+          style={{ background: "radial-gradient(circle, rgba(212,175,55,0.45) 0%, transparent 70%)", filter: "blur(60px)" }}
+          animate={{ x: [80, -130, 80], y: [40, -80, 40] }}
+          transition={{ duration: 15, repeat: Infinity, ease: "easeInOut" }}
+        />
+
+        {/* Subtle grid */}
+        <div
+          className="absolute inset-0 opacity-[0.025] pointer-events-none"
+          style={{ backgroundImage: "linear-gradient(rgba(255,255,255,0.1) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.1) 1px, transparent 1px)", backgroundSize: "50px 50px" }}
+        />
+
+        {/* Floating particles */}
+        {[...Array(24)].map((_, i) => (
+          <motion.div
+            key={i}
+            className="absolute rounded-full pointer-events-none"
+            style={{
+              width: `${2 + (i % 3)}px`,
+              height: `${2 + (i % 3)}px`,
+              left: `${(i * 4.3) % 100}%`,
+              top: `${(i * 7.1) % 100}%`,
+              background: i % 3 === 0 ? "rgba(212,175,55,0.65)" : i % 3 === 1 ? "rgba(16,185,129,0.65)" : "rgba(255,255,255,0.4)",
+            }}
+            animate={{ y: [0, -28, 0], opacity: [0.2, 0.75, 0.2], scale: [1, 1.4, 1] }}
+            transition={{ duration: 3 + (i % 4), repeat: Infinity, delay: (i % 6) * 0.5, ease: "easeInOut" }}
+          />
+        ))}
+
+        {/* Floating card symbols (subtle) */}
+        {(["♠", "♥", "♦", "♣"] as const).map((suit, i) => (
+          <motion.span
+            key={i}
+            className={`absolute text-6xl font-bold opacity-[0.025] select-none pointer-events-none ${suit === "♥" || suit === "♦" ? "text-red-500" : "text-white"}`}
+            style={{ left: `${15 + i * 22}%`, top: `${20 + (i % 2) * 38}%` }}
+            animate={{ y: [0, -18, 0], rotate: [0, 8, 0], opacity: [0.02, 0.045, 0.02] }}
+            transition={{ duration: 8 + i * 2, repeat: Infinity, delay: i * 1.4 }}
+          >
+            {suit}
+          </motion.span>
+        ))}
+
+        {/* Light beams */}
+        <motion.div
+          className="absolute top-0 left-1/4 w-px h-full bg-gradient-to-b from-emerald-500/18 via-emerald-500/5 to-transparent pointer-events-none"
+          animate={{ opacity: [0.3, 0.6, 0.3] }}
+          transition={{ duration: 4, repeat: Infinity }}
+        />
+        <motion.div
+          className="absolute top-0 right-1/3 w-px h-full bg-gradient-to-b from-gold/18 via-gold/5 to-transparent pointer-events-none"
+          animate={{ opacity: [0.2, 0.5, 0.2] }}
+          transition={{ duration: 5, repeat: Infinity, delay: 1 }}
+        />
+
+        {/* Corner accents */}
+        <div className="absolute top-0 left-0 w-64 h-64 bg-gradient-to-br from-emerald-500/8 to-transparent pointer-events-none" />
+        <div className="absolute top-0 right-0 w-64 h-64 bg-gradient-to-bl from-gold/8 to-transparent pointer-events-none" />
+      </div>
 
       {/* Win celebration confetti */}
       <AnimatePresence>{showWin && <WinCelebration />}</AnimatePresence>
       {/* All-In banner */}
       <AnimatePresence>{showAllIn && <AllInBanner onDone={() => setShowAllIn(false)} />}</AnimatePresence>
+
+      {/* Dealer character */}
+      <DealerCharacter />
 
       {!connected && (
         <div className="fixed top-20 left-1/2 -translate-x-1/2 z-50 flex items-center gap-2 px-4 py-2 rounded-lg bg-destructive/20 border border-destructive/40 text-sm">
