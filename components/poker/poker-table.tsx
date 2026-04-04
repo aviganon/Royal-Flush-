@@ -533,81 +533,183 @@ export function PokerTable({
       </div>
 
       <motion.div
-        initial={{ y: 100, opacity: 0 }}
+        initial={{ y: 120, opacity: 0 }}
         animate={{ y: 0, opacity: 1 }}
-        transition={{ delay: 0.3 }}
-        className="fixed bottom-0 left-0 right-0 glass-effect border-t border-border p-4 z-30"
+        transition={{ delay: 0.3, type: "spring", damping: 20 }}
+        className="fixed bottom-0 left-0 right-0 z-30"
       >
-        <div className="max-w-4xl mx-auto">
-          <div className="flex flex-col sm:flex-row items-center gap-4">
-            <div className="w-full sm:flex-1">
-              <div className="flex items-center justify-between mb-2">
-                <span className="text-sm text-muted-foreground">רייז עד</span>
-                <span className="text-lg font-bold text-gold font-[family-name:var(--font-orbitron)]">
-                  ${betAmount[0]}
-                </span>
-              </div>
-              <Slider
-                value={betAmount}
-                onValueChange={setBetAmount}
-                min={raiseRange.min}
-                max={raiseRange.max}
-                step={1}
-                disabled={!isMyTurn || state.handFinished}
-                className="w-full"
-              />
-              <div className="flex justify-between mt-1">
-                <span className="text-xs text-muted-foreground">
-                  מינ׳ ${raiseRange.min}
-                </span>
-                <span className="text-xs text-muted-foreground">
-                  מקס׳ ${raiseRange.max}
-                </span>
-              </div>
-            </div>
+        {/* Blur backdrop */}
+        <div className="absolute inset-0 bg-charcoal/80 backdrop-blur-xl border-t border-white/10" />
 
-            <div className="flex gap-2 w-full sm:w-auto flex-wrap justify-center">
-              <Button
-                variant="outline"
-                className="flex-1 sm:flex-none border-destructive text-destructive hover:bg-destructive/10"
-                onClick={() => sendAction("fold")}
+        <div className="relative max-w-3xl mx-auto px-4 py-3">
+
+          {/* Slider row */}
+          <AnimatePresence>
+            {isMyTurn && !state.handFinished && raiseRange.min < raiseRange.max && (
+              <motion.div
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: 10 }}
+                className="mb-3"
+              >
+                <div className="flex items-center justify-between mb-1.5">
+                  <span className="text-xs text-muted-foreground font-medium">סכום רייז</span>
+                  <motion.span
+                    key={betAmount[0]}
+                    initial={{ scale: 1.3, color: "#d4af37" }}
+                    animate={{ scale: 1, color: "#d4af37" }}
+                    className="text-xl font-bold text-gold font-[family-name:var(--font-orbitron)]"
+                  >
+                    ${betAmount[0].toLocaleString()}
+                  </motion.span>
+                  <div className="flex gap-1.5">
+                    {[
+                      { label: "½", value: Math.floor((raiseRange.min + raiseRange.max) / 2) },
+                      { label: "¾", value: Math.floor(raiseRange.min + (raiseRange.max - raiseRange.min) * 0.75) },
+                      { label: "מקס׳", value: raiseRange.max },
+                    ].map((q) => (
+                      <motion.button
+                        key={q.label}
+                        onClick={() => setBetAmount([Math.max(raiseRange.min, Math.min(raiseRange.max, q.value))])}
+                        className="px-2 py-0.5 rounded text-xs border border-gold/30 text-gold/70 hover:border-gold hover:text-gold transition-colors bg-gold/5"
+                        whileHover={{ scale: 1.08 }}
+                        whileTap={{ scale: 0.94 }}
+                      >
+                        {q.label}
+                      </motion.button>
+                    ))}
+                  </div>
+                </div>
+                <Slider
+                  value={betAmount}
+                  onValueChange={setBetAmount}
+                  min={raiseRange.min}
+                  max={raiseRange.max}
+                  step={1}
+                  className="w-full"
+                />
+                <div className="flex justify-between mt-1">
+                  <span className="text-[10px] text-muted-foreground/60">מינ׳ ${raiseRange.min}</span>
+                  <span className="text-[10px] text-muted-foreground/60">מקס׳ ${raiseRange.max.toLocaleString()}</span>
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
+
+          {/* Action buttons */}
+          <div className="flex gap-2 sm:gap-3 justify-center">
+
+            {/* פורש */}
+            <motion.button
+              onClick={() => sendAction("fold")}
+              disabled={!isMyTurn || state.handFinished}
+              className={`relative flex-1 max-w-[120px] flex flex-col items-center justify-center gap-1 py-3 px-2 rounded-2xl font-bold text-sm transition-all select-none
+                ${isMyTurn && !state.handFinished
+                  ? "bg-red-600/20 border-2 border-red-500/60 text-red-400 hover:bg-red-600/30 hover:border-red-400 cursor-pointer"
+                  : "bg-muted/10 border-2 border-border/30 text-muted-foreground/30 cursor-not-allowed"
+                }`}
+              whileHover={isMyTurn && !state.handFinished ? { scale: 1.04, y: -2 } : {}}
+              whileTap={isMyTurn && !state.handFinished ? { scale: 0.96 } : {}}
+            >
+              <span className="text-xl">🏳️</span>
+              <span>פורש</span>
+            </motion.button>
+
+            {/* צ'ק / קול */}
+            {canCheck ? (
+              <motion.button
+                onClick={() => sendAction("check")}
                 disabled={!isMyTurn || state.handFinished}
+                className={`relative flex-1 max-w-[140px] flex flex-col items-center justify-center gap-1 py-3 px-2 rounded-2xl font-bold text-sm transition-all select-none
+                  ${isMyTurn && !state.handFinished
+                    ? "bg-blue-500/20 border-2 border-blue-400/60 text-blue-300 hover:bg-blue-500/30 hover:border-blue-300 cursor-pointer"
+                    : "bg-muted/10 border-2 border-border/30 text-muted-foreground/30 cursor-not-allowed"
+                  }`}
+                whileHover={isMyTurn && !state.handFinished ? { scale: 1.04, y: -2 } : {}}
+                whileTap={isMyTurn && !state.handFinished ? { scale: 0.96 } : {}}
               >
-                פורש
-              </Button>
-              {canCheck ? (
-                <Button
-                  variant="outline"
-                  className="flex-1 sm:flex-none border-border"
-                  onClick={() => sendAction("check")}
-                  disabled={!isMyTurn || state.handFinished}
-                >
-                  צ&apos;ק
-                </Button>
-              ) : (
-                <Button
-                  variant="outline"
-                  className="flex-1 sm:flex-none border-gold text-gold hover:bg-gold/10"
-                  onClick={() => sendAction("call")}
-                  disabled={!isMyTurn || state.handFinished}
-                >
-                  קול ${toCall}
-                </Button>
+                <span className="text-xl">✋</span>
+                <span>צ׳ק</span>
+              </motion.button>
+            ) : (
+              <motion.button
+                onClick={() => sendAction("call")}
+                disabled={!isMyTurn || state.handFinished}
+                className={`relative flex-1 max-w-[140px] flex flex-col items-center justify-center gap-1 py-3 px-2 rounded-2xl font-bold text-sm transition-all select-none
+                  ${isMyTurn && !state.handFinished
+                    ? "bg-gold/15 border-2 border-gold/60 text-gold hover:bg-gold/25 hover:border-gold cursor-pointer"
+                    : "bg-muted/10 border-2 border-border/30 text-muted-foreground/30 cursor-not-allowed"
+                  }`}
+                whileHover={isMyTurn && !state.handFinished ? { scale: 1.04, y: -2 } : {}}
+                whileTap={isMyTurn && !state.handFinished ? { scale: 0.96 } : {}}
+              >
+                <span className="text-xl">💰</span>
+                <span>קול ${toCall}</span>
+              </motion.button>
+            )}
+
+            {/* רייז */}
+            <motion.button
+              onClick={() => sendAction("raise", betAmount[0])}
+              disabled={
+                !isMyTurn ||
+                state.handFinished ||
+                betAmount[0] > raiseRange.max ||
+                betAmount[0] < raiseRange.min ||
+                raiseRange.min > raiseRange.max
+              }
+              className={`relative flex-1 max-w-[160px] flex flex-col items-center justify-center gap-1 py-3 px-2 rounded-2xl font-bold text-sm transition-all select-none
+                ${isMyTurn && !state.handFinished && raiseRange.min <= raiseRange.max
+                  ? "bg-emerald/20 border-2 border-emerald/70 text-emerald hover:bg-emerald/30 hover:border-emerald cursor-pointer"
+                  : "bg-muted/10 border-2 border-border/30 text-muted-foreground/30 cursor-not-allowed"
+                }`}
+              whileHover={isMyTurn && !state.handFinished && raiseRange.min <= raiseRange.max ? { scale: 1.04, y: -2 } : {}}
+              whileTap={isMyTurn && !state.handFinished && raiseRange.min <= raiseRange.max ? { scale: 0.96 } : {}}
+            >
+              {isMyTurn && !state.handFinished && raiseRange.min <= raiseRange.max && (
+                <motion.div
+                  className="absolute inset-0 rounded-2xl bg-emerald/10"
+                  animate={{ opacity: [0.4, 0.8, 0.4] }}
+                  transition={{ duration: 1.5, repeat: Infinity }}
+                />
               )}
-              <Button
-                className="flex-1 sm:flex-none bg-emerald text-foreground hover:bg-emerald-light px-6"
-                onClick={() => sendAction("raise", betAmount[0])}
-                disabled={
-                  !isMyTurn ||
-                  state.handFinished ||
-                  betAmount[0] > raiseRange.max ||
-                  betAmount[0] < raiseRange.min ||
-                  raiseRange.min > raiseRange.max
-                }
-              >
-                רייז ל-${betAmount[0]}
-              </Button>
-            </div>
+              <span className="text-xl">📈</span>
+              <span className="relative">רייז ${betAmount[0].toLocaleString()}</span>
+            </motion.button>
+
+            {/* אול אין */}
+            <motion.button
+              onClick={() => {
+                setBetAmount([raiseRange.max]);
+                sendAction("raise", raiseRange.max);
+              }}
+              disabled={!isMyTurn || state.handFinished || raiseRange.min > raiseRange.max}
+              className={`relative flex-1 max-w-[120px] flex flex-col items-center justify-center gap-1 py-3 px-2 rounded-2xl font-bold text-sm transition-all select-none overflow-hidden
+                ${isMyTurn && !state.handFinished && raiseRange.min <= raiseRange.max
+                  ? "bg-purple-600/20 border-2 border-purple-500/70 text-purple-300 hover:bg-purple-600/35 hover:border-purple-400 cursor-pointer"
+                  : "bg-muted/10 border-2 border-border/30 text-muted-foreground/30 cursor-not-allowed"
+                }`}
+              whileHover={isMyTurn && !state.handFinished && raiseRange.min <= raiseRange.max ? { scale: 1.06, y: -3 } : {}}
+              whileTap={isMyTurn && !state.handFinished && raiseRange.min <= raiseRange.max ? { scale: 0.94 } : {}}
+            >
+              {isMyTurn && !state.handFinished && raiseRange.min <= raiseRange.max && (
+                <>
+                  <motion.div
+                    className="absolute inset-0 bg-gradient-to-t from-purple-600/20 to-transparent"
+                    animate={{ opacity: [0.3, 0.7, 0.3] }}
+                    transition={{ duration: 1.2, repeat: Infinity }}
+                  />
+                  <motion.div
+                    className="absolute -inset-1 rounded-2xl border-2 border-purple-400/40"
+                    animate={{ scale: [1, 1.05, 1], opacity: [0.5, 1, 0.5] }}
+                    transition={{ duration: 1.5, repeat: Infinity }}
+                  />
+                </>
+              )}
+              <span className="text-xl relative">🚀</span>
+              <span className="relative font-extrabold tracking-wide">ALL IN</span>
+            </motion.button>
+
           </div>
         </div>
       </motion.div>
