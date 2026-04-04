@@ -418,116 +418,114 @@ export function PokerTable({
             const pos = seatPosition(player.seat);
             const isSelf = player.id === playerId;
             const hole = "cards" in player ? player.cards : [];
+            const svgAv = getAvatarById(player.avatar);
             return (
               <motion.div
                 key={player.id}
                 className="absolute transform -translate-x-1/2 -translate-y-1/2"
                 style={{ left: `${pos.x}%`, top: `${pos.y}%` }}
                 initial={{ scale: 0, opacity: 0 }}
-                animate={{ scale: 1, opacity: 1 }}
+                animate={{ scale: 1, opacity: player.folded ? 0.35 : 1 }}
                 transition={{ delay: player.seat * 0.05, type: "spring" }}
               >
-                <motion.div
-                  className={`relative p-2 sm:p-3 rounded-xl glass-effect border ${
-                    player.isTurn
-                      ? "border-gold animate-pulse-glow"
-                      : player.folded
-                        ? "border-muted opacity-40"
-                        : "border-border"
-                  }`}
-                  animate={
-                    player.isTurn
-                      ? {
-                          boxShadow: [
-                            "0 0 20px rgba(212,175,55,0.3)",
-                            "0 0 40px rgba(212,175,55,0.5)",
-                            "0 0 20px rgba(212,175,55,0.3)",
-                          ],
-                        }
-                      : {}
-                  }
-                  transition={{ duration: 1.5, repeat: Infinity }}
-                >
-                  {player.isDealer && (
-                    <motion.div
-                      className="absolute -top-2 -right-2 w-6 h-6 rounded-full bg-gold text-charcoal text-xs font-bold flex items-center justify-center z-10"
-                      animate={{ scale: [1, 1.1, 1] }}
-                      transition={{ duration: 2, repeat: Infinity }}
-                    >
-                      D
-                    </motion.div>
+                <div className="flex flex-col items-center gap-0.5 relative">
+
+                  {/* שם שחקן — מעל האווטאר */}
+                  <div className={`px-2 py-0.5 rounded-full text-[10px] sm:text-xs font-semibold truncate max-w-[80px] sm:max-w-[96px] ${
+                    isSelf
+                      ? "bg-gold/20 text-gold border border-gold/40"
+                      : "bg-black/50 text-white/90 border border-white/10"
+                  }`}>
+                    {player.name}{isSelf ? " ★" : ""}
+                  </div>
+
+                  {/* אווטאר */}
+                  <motion.div
+                    className="relative"
+                    animate={
+                      player.isTurn
+                        ? { boxShadow: ["0 0 0 3px rgba(212,175,55,0.5)", "0 0 0 7px rgba(212,175,55,0.15)", "0 0 0 3px rgba(212,175,55,0.5)"] }
+                        : {}
+                    }
+                    transition={{ duration: 1.2, repeat: Infinity }}
+                    style={{ borderRadius: "9999px" }}
+                  >
+                    {/* Dealer chip */}
+                    {player.isDealer && (
+                      <motion.div
+                        className="absolute -top-1 -right-1 w-5 h-5 rounded-full bg-gold text-charcoal text-[9px] font-bold flex items-center justify-center z-20 shadow-lg"
+                        animate={{ scale: [1, 1.15, 1] }}
+                        transition={{ duration: 2, repeat: Infinity }}
+                      >
+                        D
+                      </motion.div>
+                    )}
+
+                    {svgAv ? (
+                      <div className={`w-11 h-11 sm:w-13 sm:h-13 rounded-full overflow-hidden border-2 shadow-lg ${
+                        player.isTurn ? "border-gold" : isSelf ? "border-gold/50" : "border-white/20"
+                      }`} style={{ width: "clamp(40px,5vw,52px)", height: "clamp(40px,5vw,52px)" }}>
+                        {svgAv.character}
+                      </div>
+                    ) : (
+                      <div className={`w-11 h-11 sm:w-12 sm:h-12 rounded-full flex items-center justify-center text-2xl border-2 shadow-lg bg-charcoal ${
+                        player.isTurn ? "border-gold" : isSelf ? "border-gold/50" : "border-white/20"
+                      }`}>
+                        {player.avatar || "🎭"}
+                      </div>
+                    )}
+                  </motion.div>
+
+                  {/* צ'יפים — מתחת לאווטאר */}
+                  <div className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-black/60 border border-gold/25 shadow">
+                    <div className="w-2.5 h-2.5 rounded-full gold-gradient shrink-0" />
+                    <span className="text-[10px] sm:text-xs text-gold font-semibold font-[family-name:var(--font-orbitron)]">
+                      {player.chips.toLocaleString()}
+                    </span>
+                  </div>
+
+                  {/* קלפים */}
+                  {hole.length > 0 && (
+                    <div className="flex gap-0.5 mt-0.5">
+                      {hole.map((card, idx) => (
+                        <PlayingCard key={idx} card={card} index={idx} small />
+                      ))}
+                    </div>
                   )}
 
-                  <div className="flex items-center gap-2 mb-2">
-                    {(() => {
-                      const svgAv = getAvatarById(player.avatar);
-                      return svgAv ? (
-                        <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-full overflow-hidden shrink-0 border border-border">
-                          {svgAv.character}
-                        </div>
-                      ) : (
-                        <div className="text-xl sm:text-2xl shrink-0">{player.avatar || "🎭"}</div>
-                      );
-                    })()}
-                    <div>
-                      <p className="text-xs sm:text-sm font-semibold text-foreground truncate max-w-16 sm:max-w-20">
-                        {player.name}
-                        {isSelf ? " (אתה)" : ""}
-                      </p>
-                      <p className="text-xs text-gold font-[family-name:var(--font-orbitron)]">
-                        ${player.chips.toLocaleString()}
-                      </p>
-                    </div>
-                  </div>
-
-                  <div className="flex gap-1 justify-center">
-                    {hole.map((card, idx) => (
-                      <PlayingCard
-                        key={idx}
-                        card={card}
-                        index={idx}
-                        small
-                      />
-                    ))}
-                  </div>
-
+                  {/* הימור ברחוב */}
                   {player.streetBet > 0 && (
                     <motion.div
                       initial={{ scale: 0 }}
                       animate={{ scale: 1 }}
-                      className="absolute -bottom-6 left-1/2 -translate-x-1/2 flex items-center gap-1 px-2 py-1 rounded-full bg-charcoal-light border border-gold/30"
+                      className="absolute -bottom-7 left-1/2 -translate-x-1/2 flex items-center gap-1 px-2 py-0.5 rounded-full bg-charcoal-light border border-gold/30 whitespace-nowrap"
                     >
-                      <div className="w-3 h-3 rounded-full gold-gradient" />
-                      <span className="text-xs text-gold font-semibold">
-                        ${player.streetBet}
-                      </span>
+                      <div className="w-2.5 h-2.5 rounded-full gold-gradient" />
+                      <span className="text-[10px] text-gold font-semibold">{player.streetBet}</span>
                     </motion.div>
                   )}
 
+                  {/* טיימר תור */}
                   {player.isTurn && (
                     <motion.div
-                      className="absolute -bottom-8 left-1/2 -translate-x-1/2 mt-1"
+                      className="absolute -bottom-11 left-1/2 -translate-x-1/2 flex flex-col items-center gap-0.5"
                       initial={{ opacity: 0 }}
                       animate={{ opacity: 1 }}
                     >
-                      <div className="flex items-center gap-1 text-xs text-gold">
-                        <Timer className="w-3 h-3" />
-                        <span className="font-[family-name:var(--font-orbitron)]">
-                          {timeLeft}s
-                        </span>
+                      <div className="flex items-center gap-1 text-[10px] text-gold">
+                        <Timer className="w-2.5 h-2.5" />
+                        <span className="font-[family-name:var(--font-orbitron)]">{timeLeft}s</span>
                       </div>
-                      <div className="w-16 h-1 bg-muted rounded-full mt-1 overflow-hidden">
+                      <div className="w-14 h-1 bg-muted rounded-full overflow-hidden">
                         <motion.div
                           className="h-full bg-gold"
-                          animate={{
-                            width: `${(timeLeft / 30) * 100}%`,
-                          }}
+                          animate={{ width: `${(timeLeft / 30) * 100}%` }}
                           transition={{ duration: 0.3 }}
                         />
                       </div>
                     </motion.div>
                   )}
-                </motion.div>
+                </div>
               </motion.div>
             );
           })}
