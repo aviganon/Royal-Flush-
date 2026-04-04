@@ -426,8 +426,17 @@ type SeatedPlayer = Extract<
 >;
 
 
-function seatPosition(seat: number, maxSeats = 9) {
-  const angle = (seat / maxSeats) * 2 * Math.PI - Math.PI / 2;
+/**
+ * Maps a server seat number to (x%, y%) on the oval table.
+ * Rotates so the current player (mySeat) always sits at the bottom center
+ * (6 o'clock), leaving the top center free for the DealerCharacter.
+ * With 9 seats the two nearest top seats land at ~17% height on either side
+ * of center, so they never overlap the dealer SVG.
+ */
+function seatPosition(seat: number, maxSeats = 9, mySeat = 0) {
+  // ((seat − mySeat) / maxSeats) × 2π gives relative offset;
+  // + π/2 rotates the origin to bottom-center (y-axis positive = down).
+  const angle = ((seat - mySeat) / maxSeats) * 2 * Math.PI + Math.PI / 2;
   const radiusX = 42;
   const radiusY = 35;
   return {
@@ -824,7 +833,7 @@ export function PokerTable({
           </motion.div>
 
           {seated.map((player) => {
-            const pos = seatPosition(player.seat);
+            const pos = seatPosition(player.seat, 9, me?.seat ?? 0);
             const isSelf = player.id === playerId;
             const hole = "cards" in player ? player.cards : [];
             const svgAv = getAvatarById(player.avatar);
