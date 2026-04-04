@@ -16,6 +16,7 @@ import {
 } from "lucide-react";
 import { usePokerSocket } from "@/hooks/use-poker-socket";
 import { getPokerSocketUrl } from "@/lib/poker/socket-url";
+import { getAvatarById } from "@/components/poker/avatar-selector";
 import type { TablePublicView } from "@/lib/poker/holdem-engine";
 import type { Card } from "@/lib/poker/types";
 
@@ -28,6 +29,7 @@ interface PokerTableProps {
   buyIn?: number;
   getIdToken?: () => Promise<string | null>;
   tableConfig?: { smallBlind: number; bigBlind: number };
+  avatarId?: string;
 }
 
 type SeatedPlayer = Extract<
@@ -68,6 +70,7 @@ export function PokerTable({
   buyIn = 2000,
   getIdToken,
   tableConfig,
+  avatarId,
 }: PokerTableProps) {
   const online = gameType === "holdem" || gameType === "omaha";
   const { connected, state, sendAction, sendChat, requestRebuy, rebuyPending } =
@@ -78,6 +81,7 @@ export function PokerTable({
       buyIn,
       enabled: online,
       getIdToken,
+      avatarId,
       tableConfig,
       gameType,
     });
@@ -455,7 +459,16 @@ export function PokerTable({
                   )}
 
                   <div className="flex items-center gap-2 mb-2">
-                    <div className="text-xl sm:text-2xl">{player.avatar}</div>
+                    {(() => {
+                      const svgAv = getAvatarById(player.avatar);
+                      return svgAv ? (
+                        <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-full overflow-hidden shrink-0 border border-border">
+                          {svgAv.character}
+                        </div>
+                      ) : (
+                        <div className="text-xl sm:text-2xl shrink-0">{player.avatar || "🎭"}</div>
+                      );
+                    })()}
                     <div>
                       <p className="text-xs sm:text-sm font-semibold text-foreground truncate max-w-16 sm:max-w-20">
                         {player.name}

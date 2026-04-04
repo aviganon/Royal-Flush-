@@ -10,7 +10,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Check, Sparkles, Lock, Star } from "lucide-react";
+import { Check, Sparkles, Star } from "lucide-react";
 
 export interface Avatar {
   id: string;
@@ -470,7 +470,10 @@ interface AvatarSelectorProps {
   onClose: () => void;
   onSelect: (avatar: Avatar) => void;
   selectedAvatarId?: string;
-  unlockedAvatars?: string[];
+}
+
+export function getAvatarById(id: string): Avatar | undefined {
+  return avatars.find((a) => a.id === id);
 }
 
 export function AvatarSelector({
@@ -478,19 +481,15 @@ export function AvatarSelector({
   onClose,
   onSelect,
   selectedAvatarId,
-  unlockedAvatars = ["cool-cat", "nerd-dog", "crazy-rabbit"],
 }: AvatarSelectorProps) {
   const [selectedCategory, setSelectedCategory] = useState<
     "all" | "free" | "premium" | "legendary"
   >("all");
-  const [previewAvatar, setPreviewAvatar] = useState<Avatar | null>(null);
 
   const filteredAvatars =
     selectedCategory === "all"
       ? avatars
       : avatars.filter((a) => a.category === selectedCategory);
-
-  const isUnlocked = (avatarId: string) => unlockedAvatars.includes(avatarId);
 
   const getCategoryColor = (category: string) => {
     switch (category) {
@@ -505,45 +504,52 @@ export function AvatarSelector({
     }
   };
 
-  const getCategoryIcon = (category: string) => {
-    switch (category) {
-      case "free":
-        return null;
-      case "premium":
-        return <Star className="w-3 h-3" />;
-      case "legendary":
-        return <Sparkles className="w-3 h-3" />;
-      default:
-        return null;
-    }
+  const selectedAv = selectedAvatarId ? getAvatarById(selectedAvatarId) : null;
+
+  const handleSelect = (avatar: Avatar) => {
+    onSelect(avatar);
+    onClose();
   };
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="glass-effect border-border max-w-4xl max-h-[90vh] overflow-hidden">
-        <DialogHeader>
-          <DialogTitle className="text-2xl text-gold font-[family-name:var(--font-orbitron)] text-center flex items-center justify-center gap-3">
+      <DialogContent className="glass-effect border-border w-[95vw] max-w-xl max-h-[88vh] flex flex-col gap-0 p-0 overflow-hidden">
+        <DialogHeader className="px-5 pt-5 pb-3 shrink-0">
+          <DialogTitle className="text-xl text-gold font-[family-name:var(--font-orbitron)] text-center flex items-center justify-center gap-2">
             <motion.span
               animate={{ rotate: [0, 10, -10, 0] }}
               transition={{ duration: 2, repeat: Infinity }}
             >
-              <Sparkles className="w-6 h-6 text-gold" />
+              <Sparkles className="w-5 h-5 text-gold" />
             </motion.span>
             בחר אווטר
             <motion.span
               animate={{ rotate: [0, -10, 10, 0] }}
               transition={{ duration: 2, repeat: Infinity, delay: 0.5 }}
             >
-              <Sparkles className="w-6 h-6 text-gold" />
+              <Sparkles className="w-5 h-5 text-gold" />
             </motion.span>
           </DialogTitle>
-          <DialogDescription className="text-center text-muted-foreground">
+          <DialogDescription className="text-center text-muted-foreground text-sm">
             בחר דמות מצחיקה לפרופיל שלך
           </DialogDescription>
         </DialogHeader>
 
+        {/* Selected preview strip */}
+        {selectedAv && (
+          <div className="mx-5 mb-2 px-4 py-2 rounded-xl bg-gold/10 border border-gold/30 flex items-center gap-3 shrink-0">
+            <div className="w-10 h-10 rounded-full overflow-hidden shrink-0">
+              {selectedAv.character}
+            </div>
+            <div>
+              <p className="text-sm font-semibold text-gold">{selectedAv.name}</p>
+              <p className="text-xs text-muted-foreground">נבחר כרגע ✓</p>
+            </div>
+          </div>
+        )}
+
         {/* Category Tabs */}
-        <div className="flex gap-2 justify-center mb-4 flex-wrap">
+        <div className="flex gap-2 justify-center px-5 pb-3 flex-wrap shrink-0">
           {[
             { id: "all", label: "הכל" },
             { id: "free", label: "חינם" },
@@ -555,7 +561,7 @@ export function AvatarSelector({
               onClick={() =>
                 setSelectedCategory(cat.id as typeof selectedCategory)
               }
-              className={`px-4 py-2 rounded-full text-sm font-medium transition-all border ${
+              className={`px-3 py-1.5 rounded-full text-sm font-medium transition-all border ${
                 selectedCategory === cat.id
                   ? "bg-gold text-charcoal border-gold"
                   : "bg-muted/50 text-muted-foreground border-border hover:border-gold/50"
@@ -568,200 +574,82 @@ export function AvatarSelector({
           ))}
         </div>
 
-        <div className="flex gap-4 overflow-hidden">
-          {/* Avatar Grid */}
-          <div className="flex-1 overflow-y-auto max-h-[60vh] pr-2">
-            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
-              <AnimatePresence mode="popLayout">
-                {filteredAvatars.map((avatar, index) => {
-                  const unlocked = isUnlocked(avatar.id);
-                  const isSelected = selectedAvatarId === avatar.id;
+        {/* Avatar Grid — scrollable */}
+        <div className="flex-1 overflow-y-auto px-5 pb-4">
+          <div className="grid grid-cols-3 sm:grid-cols-4 gap-3">
+            <AnimatePresence mode="popLayout">
+              {filteredAvatars.map((avatar, index) => {
+                const isSelected = selectedAvatarId === avatar.id;
 
-                  return (
-                    <motion.div
-                      key={avatar.id}
-                      layout
-                      initial={{ opacity: 0, scale: 0.8 }}
-                      animate={{ opacity: 1, scale: 1 }}
-                      exit={{ opacity: 0, scale: 0.8 }}
-                      transition={{ delay: index * 0.05 }}
-                      onClick={() => {
-                        if (unlocked) {
-                          onSelect(avatar);
-                        } else {
-                          setPreviewAvatar(avatar);
-                        }
-                      }}
-                      onMouseEnter={() => setPreviewAvatar(avatar)}
-                      onMouseLeave={() => setPreviewAvatar(null)}
-                      className={`relative p-3 rounded-2xl border transition-all cursor-pointer ${
-                        isSelected
-                          ? "border-gold bg-gold/20"
-                          : unlocked
-                          ? "border-border hover:border-gold/50 bg-muted/30 hover:bg-muted/50"
-                          : "border-border/50 bg-muted/10 opacity-70"
-                      }`}
-                      whileHover={{ scale: unlocked ? 1.05 : 1.02, y: -5 }}
-                      whileTap={{ scale: 0.95 }}
-                      role="button"
-                      tabIndex={0}
-                      onKeyDown={(e) => {
-                        if (e.key === "Enter" || e.key === " ") {
-                          if (unlocked) {
-                            onSelect(avatar);
-                          } else {
-                            setPreviewAvatar(avatar);
-                          }
-                        }
-                      }}
-                    >
-                      {/* Lock overlay */}
-                      {!unlocked && (
-                        <motion.div
-                          className="absolute inset-0 flex items-center justify-center bg-charcoal/60 rounded-2xl z-10"
-                          initial={{ opacity: 0 }}
-                          animate={{ opacity: 1 }}
-                        >
-                          <Lock className="w-8 h-8 text-muted-foreground" />
-                        </motion.div>
-                      )}
-
-                      {/* Selected check */}
-                      {isSelected && (
-                        <motion.div
-                          className="absolute top-2 right-2 w-6 h-6 rounded-full bg-gold flex items-center justify-center z-20"
-                          initial={{ scale: 0 }}
-                          animate={{ scale: 1 }}
-                        >
-                          <Check className="w-4 h-4 text-charcoal" />
-                        </motion.div>
-                      )}
-
-                      {/* Avatar Image */}
+                return (
+                  <motion.button
+                    key={avatar.id}
+                    layout
+                    initial={{ opacity: 0, scale: 0.8 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    exit={{ opacity: 0, scale: 0.8 }}
+                    transition={{ delay: index * 0.04 }}
+                    onClick={() => handleSelect(avatar)}
+                    className={`relative p-2.5 rounded-2xl border transition-all cursor-pointer text-left ${
+                      isSelected
+                        ? "border-gold bg-gold/20 shadow-lg shadow-gold/20"
+                        : "border-border hover:border-gold/50 bg-muted/30 hover:bg-muted/50"
+                    }`}
+                    whileHover={{ scale: 1.05, y: -4 }}
+                    whileTap={{ scale: 0.95 }}
+                  >
+                    {/* Selected check */}
+                    {isSelected && (
                       <motion.div
-                        className="w-20 h-20 mx-auto mb-2 rounded-full overflow-hidden"
-                        animate={
-                          isSelected
-                            ? {
-                                boxShadow: [
-                                  "0 0 0 0 rgba(212,175,55,0.4)",
-                                  "0 0 0 10px rgba(212,175,55,0)",
-                                ],
-                              }
-                            : {}
-                        }
-                        transition={{ duration: 1, repeat: Infinity }}
+                        className="absolute top-1.5 right-1.5 w-5 h-5 rounded-full bg-gold flex items-center justify-center z-20"
+                        initial={{ scale: 0 }}
+                        animate={{ scale: 1 }}
                       >
-                        {avatar.character}
+                        <Check className="w-3 h-3 text-charcoal" />
                       </motion.div>
+                    )}
 
-                      {/* Name */}
-                      <p className="text-sm font-medium text-foreground text-center truncate">
-                        {avatar.name}
-                      </p>
-
-                      {/* Category Badge */}
-                      <div
-                        className={`mt-1 flex items-center justify-center gap-1 text-xs px-2 py-0.5 rounded-full border ${getCategoryColor(
-                          avatar.category
-                        )}`}
-                      >
-                        {getCategoryIcon(avatar.category)}
-                        <span>
-                          {avatar.category === "free"
-                            ? "חינם"
-                            : avatar.category === "premium"
-                            ? "פרימיום"
-                            : "אגדי"}
-                        </span>
-                      </div>
+                    {/* Avatar Image */}
+                    <motion.div
+                      className="w-16 h-16 mx-auto mb-1.5 rounded-full overflow-hidden"
+                      animate={
+                        isSelected
+                          ? { boxShadow: ["0 0 0 0 rgba(212,175,55,0.4)", "0 0 0 8px rgba(212,175,55,0)"] }
+                          : {}
+                      }
+                      transition={{ duration: 1, repeat: Infinity }}
+                    >
+                      {avatar.character}
                     </motion.div>
-                  );
-                })}
-              </AnimatePresence>
-            </div>
-          </div>
 
-          {/* Preview Panel */}
-          <motion.div
-            className="hidden md:flex w-48 flex-col items-center justify-center glass-effect rounded-2xl p-4 border border-border"
-            initial={{ opacity: 0, x: 20 }}
-            animate={{ opacity: 1, x: 0 }}
-          >
-            <AnimatePresence mode="wait">
-              {previewAvatar ? (
-                <motion.div
-                  key={previewAvatar.id}
-                  initial={{ opacity: 0, scale: 0.8, rotate: -10 }}
-                  animate={{ opacity: 1, scale: 1, rotate: 0 }}
-                  exit={{ opacity: 0, scale: 0.8, rotate: 10 }}
-                  transition={{ type: "spring", damping: 15 }}
-                  className="text-center"
-                >
-                  <motion.div
-                    className="w-32 h-32 mx-auto mb-3 rounded-full overflow-hidden"
-                    animate={{
-                      y: [0, -5, 0],
-                    }}
-                    transition={{ duration: 2, repeat: Infinity }}
-                  >
-                    {previewAvatar.character}
-                  </motion.div>
-                  <p className="text-lg font-semibold text-foreground">
-                    {previewAvatar.name}
-                  </p>
-                  <div
-                    className={`mt-2 inline-flex items-center gap-1 text-sm px-3 py-1 rounded-full border ${getCategoryColor(
-                      previewAvatar.category
-                    )}`}
-                  >
-                    {getCategoryIcon(previewAvatar.category)}
-                    <span>
-                      {previewAvatar.category === "free"
-                        ? "חינם"
-                        : previewAvatar.category === "premium"
-                        ? "פרימיום"
-                        : "אגדי"}
-                    </span>
-                  </div>
-                  {!isUnlocked(previewAvatar.id) && (
-                    <p className="mt-3 text-xs text-muted-foreground">
-                      {previewAvatar.category === "premium"
-                        ? "נדרש: 5,000 נקודות"
-                        : "נדרש: 20,000 נקודות"}
+                    {/* Name */}
+                    <p className="text-xs font-medium text-foreground text-center truncate">
+                      {avatar.name}
                     </p>
-                  )}
-                </motion.div>
-              ) : (
-                <motion.div
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  className="text-center text-muted-foreground"
-                >
-                  <div className="w-32 h-32 mx-auto mb-3 rounded-full bg-muted/30 flex items-center justify-center">
-                    <Sparkles className="w-12 h-12 text-muted-foreground/50" />
-                  </div>
-                  <p className="text-sm">העבר עכבר לתצוגה מקדימה</p>
-                </motion.div>
-              )}
+
+                    {/* Category badge */}
+                    <div className={`mt-1 flex items-center justify-center gap-0.5 text-[10px] px-1.5 py-0.5 rounded-full border ${getCategoryColor(avatar.category)}`}>
+                      {avatar.category === "premium" && <Star className="w-2.5 h-2.5" />}
+                      {avatar.category === "legendary" && <Sparkles className="w-2.5 h-2.5" />}
+                      <span>
+                        {avatar.category === "free" ? "חינם" : avatar.category === "premium" ? "פרימיום" : "אגדי"}
+                      </span>
+                    </div>
+                  </motion.button>
+                );
+              })}
             </AnimatePresence>
-          </motion.div>
+          </div>
         </div>
 
-        {/* Action Buttons */}
-        <div className="flex gap-3 mt-4 pt-4 border-t border-border">
+        {/* Close button */}
+        <div className="px-5 pb-4 pt-2 border-t border-border shrink-0">
           <Button
             variant="outline"
             onClick={onClose}
-            className="flex-1 border-border hover:border-gold/50"
+            className="w-full border-border hover:border-gold/50"
           >
-            ביטול
-          </Button>
-          <Button
-            onClick={onClose}
-            className="flex-1 bg-emerald text-foreground hover:bg-emerald-light"
-          >
-            שמור בחירה
+            סגור
           </Button>
         </div>
       </DialogContent>

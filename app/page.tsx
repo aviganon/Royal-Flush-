@@ -243,6 +243,7 @@ export default function PokerApp() {
                 buyIn={tableBuyIn}
                 getIdToken={getIdToken}
                 tableConfig={tableBlinds}
+                avatarId={selectedAvatar.id}
               />
             </motion.div>
           )}

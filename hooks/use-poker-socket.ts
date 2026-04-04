@@ -13,6 +13,7 @@ export function usePokerSocket(opts: {
   buyIn?: number;
   enabled: boolean;
   getIdToken?: () => Promise<string | null>;
+  avatarId?: string;
   /** לחדר חדש בלבד — השרת מתעלם אם החדר כבר קיים */
   tableConfig?: { smallBlind: number; bigBlind: number };
   gameType?: "holdem" | "omaha";
@@ -51,6 +52,7 @@ export function usePokerSocket(opts: {
             name: opts.playerName,
             buyIn: opts.buyIn ?? 2000,
             idToken,
+            avatar: opts.avatarId,
             smallBlind: opts.tableConfig?.smallBlind,
             bigBlind: opts.tableConfig?.bigBlind,
             gameType: opts.gameType ?? "holdem",
@@ -88,6 +90,7 @@ export function usePokerSocket(opts: {
     opts.playerId,
     opts.playerName,
     opts.buyIn,
+    opts.avatarId,
     opts.tableConfig?.smallBlind,
     opts.tableConfig?.bigBlind,
     opts.gameType,
