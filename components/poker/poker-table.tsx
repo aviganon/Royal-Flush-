@@ -217,17 +217,22 @@ const suitSymbolsMap = {
   clubs: "♣",
 } as const;
 
-const suitColorsMap = {
-  spades: "text-foreground",
-  hearts: "text-red-500",
-  diamonds: "text-red-500",
-  clubs: "text-foreground",
+// Hardcoded dark/red — never inherits CSS theme variables (avoids white-on-white bug)
+const suitHex = {
+  spades:   "#1a1a1a",
+  hearts:   "#dc2626",
+  diamonds: "#dc2626",
+  clubs:    "#1a1a1a",
 } as const;
 
 /**
- * PlayingCard — defined at MODULE level so React never unmounts/remounts
- * it on parent re-renders.  If defined inside PokerTable, every render
- * creates a new component type → all cards flip on every 500ms timer tick.
+ * PlayingCard — module-level memo so React never unmounts/remounts it on
+ * parent re-renders (avoids the "cards flip every 500 ms" bug).
+ *
+ * Sizes:
+ *  sm  → opponent face-down cards (small)
+ *  md  → community / board cards  (medium-large, v0 style)
+ *  lg  → my own hole cards        (large, v0 style)
  */
 const PlayingCard = memo(function PlayingCard({
   card,
@@ -238,65 +243,94 @@ const PlayingCard = memo(function PlayingCard({
   card: Card;
   index: number;
   isHidden?: boolean;
-  /** sm = opponent hidden cards, md = board cards, lg = my hole cards */
   size?: "sm" | "md" | "lg";
 }) {
   const isHidden = forceHidden || card.value === "?";
+  const color = suitHex[card.suit];
+  const sym   = suitSymbolsMap[card.suit];
 
+  // Outer card dimensions
   const dims =
     size === "lg"
-      ? "w-16 h-24 sm:w-20 sm:h-28"
+      ? "w-20 h-28 sm:w-24 sm:h-32 md:w-28 md:h-36"
       : size === "md"
-      ? "w-13 h-18 sm:w-16 sm:h-22"
-      : "w-8 h-12 sm:w-10 sm:h-14";
+      ? "w-14 h-20 sm:w-16 sm:h-24 md:w-20 md:h-28"
+      : "w-8  h-12 sm:w-9  sm:h-14";
 
-  const textSm =
+  // Corner value font size
+  const valFont =
     size === "lg"
-      ? "text-base sm:text-lg font-extrabold"
+      ? "text-xl sm:text-2xl md:text-3xl"
       : size === "md"
-      ? "text-sm sm:text-base font-bold"
-      : "text-xs font-bold";
+      ? "text-lg sm:text-xl md:text-2xl"
+      : "text-[10px]";
 
-  const textCenter =
+  // Corner suit symbol font size (below value)
+  const symSmFont =
     size === "lg"
-      ? "text-3xl sm:text-4xl"
+      ? "text-base sm:text-lg md:text-xl -mt-1"
       : size === "md"
-      ? "text-xl sm:text-2xl"
-      : "text-lg";
+      ? "text-sm  sm:text-base md:text-lg -mt-1"
+      : "text-[9px]";
+
+  // Center big suit symbol
+  const symBigFont =
+    size === "lg"
+      ? "text-5xl sm:text-6xl md:text-7xl"
+      : size === "md"
+      ? "text-4xl sm:text-5xl md:text-6xl"
+      : "text-xl";
 
   return (
     <motion.div
-      initial={{ rotateY: 180, x: -60, opacity: 0 }}
+      initial={{ rotateY: 180, x: -50, opacity: 0 }}
       animate={{ rotateY: isHidden ? 180 : 0, x: 0, opacity: 1 }}
-      whileHover={size === "lg" ? { y: -8, scale: 1.06 } : undefined}
-      transition={{ delay: index * 0.08, duration: 0.45, type: "spring", damping: 18 }}
-      className={`relative ${dims} rounded-xl shadow-xl transform-gpu cursor-default select-none`}
-      style={{ perspective: "1000px" }}
+      whileHover={size !== "sm" ? { y: -10, scale: 1.08, zIndex: 50 } : undefined}
+      transition={{ delay: index * 0.12, duration: 0.55, type: "spring", stiffness: 100, damping: 18 }}
+      className={`relative ${dims} rounded-xl transform-gpu cursor-default select-none shrink-0`}
+      style={{ perspective: "1200px", transformStyle: "preserve-3d" }}
     >
       {isHidden ? (
-        <div className="absolute inset-0 rounded-xl bg-gradient-to-br from-blue-900 to-blue-950 border-2 border-blue-700 flex items-center justify-center">
-          <div className="w-full h-full rounded-xl bg-[repeating-linear-gradient(45deg,transparent,transparent_5px,rgba(59,130,246,0.1)_5px,rgba(59,130,246,0.1)_10px)]" />
-          <span className={`absolute ${textCenter}`}>🃏</span>
+        /* ── Card back ── */
+        <div className="absolute inset-0 rounded-xl bg-gradient-to-br from-blue-800 to-blue-950 border-2 border-blue-600 overflow-hidden">
+          <div className="absolute inset-0 bg-[repeating-linear-gradient(45deg,transparent,transparent_4px,rgba(59,130,246,0.15)_4px,rgba(59,130,246,0.15)_8px)]" />
+          <div className="absolute inset-2 border border-blue-500/30 rounded-lg" />
+          <div className="absolute inset-0 flex items-center justify-center text-blue-400/50 text-2xl">🃏</div>
         </div>
       ) : (
-        <div
-          className={`absolute inset-0 rounded-xl bg-white border ${
-            size === "lg" ? "border-gray-300 shadow-lg p-1.5" : "border-gray-200 p-1"
-          } flex flex-col items-center justify-between`}
+        /* ── Card face (v0 style) ── */
+        <div className="absolute inset-0 rounded-xl bg-white overflow-hidden border-2 border-gray-200"
+          style={{ boxShadow: "0 8px 32px rgba(0,0,0,0.25), 0 2px 8px rgba(0,0,0,0.15)" }}
         >
-          <span className={`${textSm} ${suitColorsMap[card.suit]} self-start leading-none`}>
-            {card.value}
-            <span className="ml-0.5">{suitSymbolsMap[card.suit]}</span>
-          </span>
-          <span className={`${textCenter} ${suitColorsMap[card.suit]} font-bold`}>
-            {suitSymbolsMap[card.suit]}
-          </span>
-          <span className={`${textSm} ${suitColorsMap[card.suit]} self-end leading-none rotate-180`}>
-            {card.value}
-            <span className="ml-0.5">{suitSymbolsMap[card.suit]}</span>
-          </span>
+          {/* Animated shine */}
+          <motion.div
+            className="absolute inset-0 bg-gradient-to-br from-white/70 via-transparent to-transparent pointer-events-none"
+            animate={{ opacity: [0.3, 0.65, 0.3] }}
+            transition={{ duration: 2.5, repeat: Infinity }}
+          />
+
+          {/* Layout: top-left value, big center suit, bottom-right rotated */}
+          <div className="absolute inset-0 flex flex-col items-center justify-between p-2">
+            {/* Top-left */}
+            <div className="self-start leading-none">
+              <div className={`${valFont} font-black leading-none`} style={{ color }}>{card.value}</div>
+              <div className={`${symSmFont} font-bold`} style={{ color }}>{sym}</div>
+            </div>
+
+            {/* Center */}
+            <div className={`${symBigFont} font-bold leading-none`} style={{ color }}>{sym}</div>
+
+            {/* Bottom-right (rotated 180°) */}
+            <div className="self-end leading-none rotate-180">
+              <div className={`${valFont} font-black leading-none`} style={{ color }}>{card.value}</div>
+              <div className={`${symSmFont} font-bold`} style={{ color }}>{sym}</div>
+            </div>
+          </div>
         </div>
       )}
+
+      {/* Drop shadow layer */}
+      <div className="absolute inset-0 rounded-xl -z-10 translate-y-1 blur-md bg-black/25" />
     </motion.div>
   );
 });
