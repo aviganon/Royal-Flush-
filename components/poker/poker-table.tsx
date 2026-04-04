@@ -1,7 +1,7 @@
 "use client";
 
 import { motion, AnimatePresence } from "framer-motion";
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, memo } from "react";
 import { Button } from "@/components/ui/button";
 import { Slider } from "@/components/ui/slider";
 import {
@@ -20,6 +20,116 @@ import { getAvatarById } from "@/components/poker/avatar-selector";
 import type { TablePublicView } from "@/lib/poker/holdem-engine";
 import type { Card } from "@/lib/poker/types";
 
+// ─── Module-level constants ──────────────────────────────────────────────────
+const suitSymbolsMap = {
+  spades: "♠",
+  hearts: "♥",
+  diamonds: "♦",
+  clubs: "♣",
+} as const;
+
+const suitColorsMap = {
+  spades: "text-foreground",
+  hearts: "text-red-500",
+  diamonds: "text-red-500",
+  clubs: "text-foreground",
+} as const;
+
+/**
+ * PlayingCard — defined at MODULE level so React never unmounts/remounts
+ * it on parent re-renders.  If defined inside PokerTable, every render
+ * creates a new component type → all cards flip on every 500ms timer tick.
+ */
+const PlayingCard = memo(function PlayingCard({
+  card,
+  index,
+  isHidden: forceHidden,
+  small = false,
+}: {
+  card: Card;
+  index: number;
+  isHidden?: boolean;
+  small?: boolean;
+}) {
+  const isHidden = forceHidden || card.value === "?";
+  return (
+    <motion.div
+      initial={{ rotateY: 180, x: -60, opacity: 0 }}
+      animate={{ rotateY: isHidden ? 180 : 0, x: 0, opacity: 1 }}
+      transition={{ delay: index * 0.08, duration: 0.45, type: "spring", damping: 18 }}
+      className={`relative ${
+        small ? "w-8 h-12 sm:w-10 sm:h-14" : "w-12 h-16 sm:w-14 sm:h-20"
+      } rounded-lg shadow-lg transform-gpu`}
+      style={{ perspective: "1000px" }}
+    >
+      {isHidden ? (
+        <div className="absolute inset-0 rounded-lg bg-gradient-to-br from-blue-900 to-blue-950 border-2 border-blue-700 flex items-center justify-center">
+          <div className="w-full h-full rounded-lg bg-[repeating-linear-gradient(45deg,transparent,transparent_5px,rgba(59,130,246,0.1)_5px,rgba(59,130,246,0.1)_10px)]" />
+          <span className="absolute text-xl sm:text-2xl">🃏</span>
+        </div>
+      ) : (
+        <div className="absolute inset-0 rounded-lg bg-white border border-gray-200 p-1 flex flex-col items-center justify-between">
+          <span className={`text-xs sm:text-sm font-bold ${suitColorsMap[card.suit]}`}>
+            {card.value}
+          </span>
+          <span className={`text-lg sm:text-2xl ${suitColorsMap[card.suit]}`}>
+            {suitSymbolsMap[card.suit]}
+          </span>
+          <span className={`text-xs sm:text-sm font-bold rotate-180 ${suitColorsMap[card.suit]}`}>
+            {card.value}
+          </span>
+        </div>
+      )}
+    </motion.div>
+  );
+});
+
+/**
+ * TurnTimer — isolated component so the 500ms tick re-renders only itself,
+ * not the entire PokerTable.
+ */
+const TurnTimer = memo(function TurnTimer({
+  deadline,
+  total = 30,
+}: {
+  deadline: number;
+  total?: number;
+}) {
+  const [timeLeft, setTimeLeft] = useState(() =>
+    Math.max(0, Math.ceil((deadline - Date.now()) / 1000)),
+  );
+
+  useEffect(() => {
+    const t = setInterval(() => {
+      setTimeLeft(Math.max(0, Math.ceil((deadline - Date.now()) / 1000)));
+    }, 250);
+    return () => clearInterval(t);
+  }, [deadline]);
+
+  const pct = Math.min(1, timeLeft / total) * 100;
+  const color = timeLeft <= 5 ? "bg-red-500" : timeLeft <= 10 ? "bg-yellow-400" : "bg-gold";
+
+  return (
+    <motion.div
+      className="flex flex-col items-center gap-0.5"
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+    >
+      <div className="flex items-center gap-1 text-[10px] text-gold">
+        <Timer className="w-2.5 h-2.5" />
+        <span className="font-[family-name:var(--font-orbitron)]">{timeLeft}s</span>
+      </div>
+      <div className="w-14 h-1 bg-muted rounded-full overflow-hidden">
+        <motion.div
+          className={`h-full ${color} rounded-full`}
+          animate={{ width: `${pct}%` }}
+          transition={{ duration: 0.2 }}
+        />
+      </div>
+    </motion.div>
+  );
+});
+
 interface PokerTableProps {
   gameType: "holdem" | "omaha";
   onLeaveTable: () => void;
@@ -37,19 +147,6 @@ type SeatedPlayer = Extract<
   { empty: false }
 >;
 
-const suitSymbols = {
-  spades: "♠",
-  hearts: "♥",
-  diamonds: "♦",
-  clubs: "♣",
-};
-
-const suitColors = {
-  spades: "text-foreground",
-  hearts: "text-red-500",
-  diamonds: "text-red-500",
-  clubs: "text-foreground",
-};
 
 function seatPosition(seat: number, maxSeats = 9) {
   const angle = (seat / maxSeats) * 2 * Math.PI - Math.PI / 2;
@@ -91,12 +188,6 @@ export function PokerTable({
   const [showChat, setShowChat] = useState(false);
   const [showHistory, setShowHistory] = useState(false);
   const [chatDraft, setChatDraft] = useState("");
-  const [now, setNow] = useState(() => Date.now());
-
-  useEffect(() => {
-    const t = setInterval(() => setNow(Date.now()), 500);
-    return () => clearInterval(t);
-  }, []);
 
   const me = useMemo((): SeatedPlayer | null => {
     if (!state) return null;
@@ -108,11 +199,6 @@ export function PokerTable({
   }, [state, playerId]);
 
   const isMyTurn = !!me && me.isTurn && state && !state.handFinished;
-
-  const timeLeft =
-    state?.turnDeadline && isMyTurn
-      ? Math.max(0, Math.ceil((state.turnDeadline - now) / 1000))
-      : 0;
 
   useEffect(() => {
     if (!state || !me) return;
@@ -136,57 +222,6 @@ export function PokerTable({
     const maxTo = me.streetBet + me.chips;
     return { min: minTo, max: Math.max(minTo, maxTo) };
   }, [state, me]);
-
-  const PlayingCard = ({
-    card,
-    index,
-    isHidden: forceHidden,
-    small = false,
-  }: {
-    card: Card;
-    index: number;
-    isHidden?: boolean;
-    small?: boolean;
-  }) => {
-    const isHidden = forceHidden || card.value === "?";
-    return (
-      <motion.div
-        initial={{ rotateY: 180, x: -100, opacity: 0 }}
-        animate={{ rotateY: isHidden ? 180 : 0, x: 0, opacity: 1 }}
-        transition={{ delay: index * 0.1, duration: 0.5, type: "spring" }}
-        className={`relative ${
-          small ? "w-8 h-12 sm:w-10 sm:h-14" : "w-12 h-16 sm:w-14 sm:h-20"
-        } rounded-lg shadow-lg transform-gpu cursor-pointer hover:scale-110 transition-transform`}
-        style={{ perspective: "1000px" }}
-        whileHover={{ y: -5 }}
-      >
-        {isHidden ? (
-          <div className="absolute inset-0 rounded-lg bg-gradient-to-br from-blue-900 to-blue-950 border-2 border-blue-700 flex items-center justify-center">
-            <div className="w-full h-full rounded-lg bg-[repeating-linear-gradient(45deg,transparent,transparent_5px,rgba(59,130,246,0.1)_5px,rgba(59,130,246,0.1)_10px)]" />
-            <span className="absolute text-xl sm:text-2xl">🃏</span>
-          </div>
-        ) : (
-          <div className="absolute inset-0 rounded-lg bg-white border border-gray-200 p-1 flex flex-col items-center justify-between">
-            <span
-              className={`text-xs sm:text-sm font-bold ${suitColors[card.suit]}`}
-            >
-              {card.value}
-            </span>
-            <span
-              className={`text-lg sm:text-2xl ${suitColors[card.suit]}`}
-            >
-              {suitSymbols[card.suit]}
-            </span>
-            <span
-              className={`text-xs sm:text-sm font-bold rotate-180 ${suitColors[card.suit]}`}
-            >
-              {card.value}
-            </span>
-          </div>
-        )}
-      </motion.div>
-    );
-  };
 
   if (!connected && online) {
     const isLocal =
@@ -488,7 +523,12 @@ export function PokerTable({
                   {hole.length > 0 && (
                     <div className="flex gap-0.5 mt-0.5">
                       {hole.map((card, idx) => (
-                        <PlayingCard key={idx} card={card} index={idx} small />
+                        <PlayingCard
+                          key={`${state?.handNumber ?? 0}-${card.value}${card.suit}`}
+                          card={card}
+                          index={idx}
+                          small
+                        />
                       ))}
                     </div>
                   )}
@@ -506,24 +546,10 @@ export function PokerTable({
                   )}
 
                   {/* טיימר תור */}
-                  {player.isTurn && (
-                    <motion.div
-                      className="absolute -bottom-11 left-1/2 -translate-x-1/2 flex flex-col items-center gap-0.5"
-                      initial={{ opacity: 0 }}
-                      animate={{ opacity: 1 }}
-                    >
-                      <div className="flex items-center gap-1 text-[10px] text-gold">
-                        <Timer className="w-2.5 h-2.5" />
-                        <span className="font-[family-name:var(--font-orbitron)]">{timeLeft}s</span>
-                      </div>
-                      <div className="w-14 h-1 bg-muted rounded-full overflow-hidden">
-                        <motion.div
-                          className="h-full bg-gold"
-                          animate={{ width: `${(timeLeft / 30) * 100}%` }}
-                          transition={{ duration: 0.3 }}
-                        />
-                      </div>
-                    </motion.div>
+                  {player.isTurn && state?.turnDeadline && (
+                    <div className="absolute -bottom-11 left-1/2 -translate-x-1/2">
+                      <TurnTimer deadline={state.turnDeadline} total={30} />
+                    </div>
                   )}
                 </div>
               </motion.div>
