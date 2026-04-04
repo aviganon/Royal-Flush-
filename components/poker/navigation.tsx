@@ -154,8 +154,8 @@ export function Navigation({
               variant="ghost"
               size="icon"
               className="hidden sm:flex text-muted-foreground hover:text-foreground"
-              title={isAdmin ? "פאנל בעלים" : "הגדרות"}
-              onClick={() => isAdmin ? onViewChange("admin") : undefined}
+              title="הגדרות"
+              onClick={() => onViewChange("settings")}
             >
               <Settings className="w-5 h-5" />
             </Button>
@@ -241,7 +241,7 @@ export function Navigation({
               <Button
                 variant="ghost"
                 size="icon"
-                onClick={() => { if (isAdmin) { onViewChange("admin"); setMobileMenuOpen(false); } }}
+                onClick={() => { onViewChange("settings"); setMobileMenuOpen(false); }}
               >
                 <Settings className="w-5 h-5" />
               </Button>

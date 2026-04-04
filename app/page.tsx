@@ -15,6 +15,7 @@ import {
   type GameVariant,
 } from "@/components/poker/game-type-selector";
 import { AdminPanel } from "@/components/poker/admin-panel";
+import { UserSettings } from "@/components/poker/user-settings";
 import { useFirebaseAuth } from "@/components/providers/firebase-auth-provider";
 import { useWalletTransactions } from "@/hooks/use-wallet-transactions";
 import { Loader2 } from "lucide-react";
@@ -27,7 +28,7 @@ function socketGameTypeFromVariant(v: GameVariant): "holdem" | "omaha" {
 }
 
 export default function PokerApp() {
-  const { configured, loading, user, profile, getIdToken, logout } =
+  const { configured, loading, user, profile, getIdToken, logout, refreshBootstrap } =
     useFirebaseAuth();
   const isAdmin =
     !!user && !!process.env.NEXT_PUBLIC_ADMIN_UID && user.uid === process.env.NEXT_PUBLIC_ADMIN_UID;
@@ -252,6 +253,22 @@ export default function PokerApp() {
                 currentUserId={user.uid}
                 currentChips={chipBalance}
                 currentDisplayName={displayName}
+              />
+            </motion.div>
+          )}
+
+          {currentView === "settings" && user && profile && (
+            <motion.div
+              key="settings"
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -20 }}
+              transition={{ duration: 0.3 }}
+            >
+              <UserSettings
+                profile={profile}
+                getIdToken={getIdToken}
+                onProfileUpdated={refreshBootstrap}
               />
             </motion.div>
           )}
