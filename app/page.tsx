@@ -16,6 +16,7 @@ import {
 } from "@/components/poker/game-type-selector";
 import { AdminPanel } from "@/components/poker/admin-panel";
 import { UserSettings } from "@/components/poker/user-settings";
+import { AvatarSelector, type Avatar, avatars } from "@/components/poker/avatar-selector";
 import { useFirebaseAuth } from "@/components/providers/firebase-auth-provider";
 import { useWalletTransactions } from "@/hooks/use-wallet-transactions";
 import { Loader2 } from "lucide-react";
@@ -39,6 +40,8 @@ export default function PokerApp() {
   const [selectedGameType, setSelectedGameType] =
     useState<GameVariant>("texas-holdem");
   const [showGameSelector, setShowGameSelector] = useState(false);
+  const [showAvatarSelector, setShowAvatarSelector] = useState(false);
+  const [selectedAvatar, setSelectedAvatar] = useState<Avatar>(avatars[0]!);
   const [roomId, setRoomId] = useState("royal-holdem-1");
   const [tableBuyIn, setTableBuyIn] = useState(2000);
   const [tableBlinds, setTableBlinds] = useState<{ smallBlind: number; bigBlind: number }>({
@@ -179,12 +182,21 @@ export default function PokerApp() {
         selectedGame={selectedGameType}
       />
 
+      <AvatarSelector
+        isOpen={showAvatarSelector}
+        onClose={() => setShowAvatarSelector(false)}
+        onSelect={(a) => setSelectedAvatar(a)}
+        selectedAvatarId={selectedAvatar.id}
+      />
+
       <Navigation
         currentView={currentView}
         onViewChange={handleMainViewChange}
         walletBalance={chipBalance}
         onLogout={handleLogout}
         isAdmin={isAdmin}
+        onOpenAvatarSelector={() => setShowAvatarSelector(true)}
+        selectedAvatar={selectedAvatar}
       />
 
       <main className="relative z-10">
@@ -291,6 +303,29 @@ export default function PokerApp() {
         </AnimatePresence>
       </main>
 
+      {/* Floating gold particles */}
+      <div className="fixed inset-0 pointer-events-none overflow-hidden">
+        {[...Array(12)].map((_, i) => (
+          <motion.div
+            key={i}
+            className="absolute w-1 h-1 rounded-full bg-gold/20"
+            initial={{
+              x: `${Math.random() * 100}%`,
+              y: `${Math.random() * 100}%`,
+            }}
+            animate={{
+              y: [`${Math.random() * 100}%`, `${Math.random() * 100}%`],
+              opacity: [0.1, 0.3, 0.1],
+            }}
+            transition={{
+              duration: 5 + Math.random() * 5,
+              repeat: Infinity,
+              delay: Math.random() * 3,
+              ease: "easeInOut",
+            }}
+          />
+        ))}
+      </div>
     </div>
   );
 }

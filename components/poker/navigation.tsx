@@ -14,6 +14,7 @@ import {
 } from "lucide-react";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
+import type { Avatar } from "./avatar-selector";
 
 interface NavigationProps {
   currentView: string;
@@ -21,8 +22,9 @@ interface NavigationProps {
   walletBalance: number;
   onLogout?: () => void;
   isAdmin?: boolean;
+  onOpenAvatarSelector?: () => void;
+  selectedAvatar?: Avatar;
 }
-
 
 export function Navigation({
   currentView,
@@ -30,6 +32,8 @@ export function Navigation({
   walletBalance,
   onLogout,
   isAdmin = false,
+  onOpenAvatarSelector,
+  selectedAvatar,
 }: NavigationProps) {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
@@ -110,6 +114,18 @@ export function Navigation({
 
           {/* Wallet & Actions */}
           <div className="flex items-center gap-2 lg:gap-4">
+            {/* Avatar Button */}
+            {selectedAvatar && onOpenAvatarSelector && (
+              <motion.button
+                onClick={onOpenAvatarSelector}
+                className="w-9 h-9 lg:w-10 lg:h-10 rounded-full overflow-hidden border-2 border-gold/30 hover:border-gold/60 transition-all shrink-0"
+                whileHover={{ scale: 1.1 }}
+                whileTap={{ scale: 0.95 }}
+                title="שנה אווטר"
+              >
+                {selectedAvatar.character}
+              </motion.button>
+            )}
 
             <motion.div
               className="hidden sm:flex items-center gap-2 px-3 lg:px-4 py-2 rounded-xl glass-effect border border-gold/20"
@@ -186,6 +202,19 @@ export function Navigation({
               {item.label}
             </motion.button>
           ))}
+          {/* Avatar Selector for Mobile */}
+          {selectedAvatar && onOpenAvatarSelector && (
+            <motion.button
+              onClick={() => { onOpenAvatarSelector(); setMobileMenuOpen(false); }}
+              className="w-full flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium bg-gold/10 text-gold border border-gold/30"
+              whileTap={{ scale: 0.98 }}
+            >
+              <div className="w-8 h-8 rounded-full overflow-hidden border border-gold/50 shrink-0">
+                {selectedAvatar.character}
+              </div>
+              <span>שנה אווטר</span>
+            </motion.button>
+          )}
           <div className="pt-4 border-t border-border flex items-center justify-between">
             <div className="flex items-center gap-2 text-gold">
               <Wallet className="w-4 h-4" />

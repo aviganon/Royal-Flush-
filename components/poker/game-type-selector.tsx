@@ -13,8 +13,9 @@ import {
   ChevronLeft,
   Star,
   Info,
+  Sparkles,
 } from "lucide-react";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -181,6 +182,43 @@ interface GameTypeSelectorProps {
   selectedGame?: GameVariant;
 }
 
+// Floating cards animation component
+const FloatingCards = () => {
+  const cards = ["♠", "♥", "♦", "♣", "A", "K", "Q", "J"];
+  return (
+    <div className="absolute inset-0 overflow-hidden pointer-events-none opacity-20">
+      {cards.map((card, i) => (
+        <motion.div
+          key={i}
+          className={`absolute text-2xl ${
+            card === "♥" || card === "♦" ? "text-red-500" : "text-foreground"
+          }`}
+          initial={{ 
+            x: Math.random() * 100 + "%", 
+            y: "110%", 
+            rotate: Math.random() * 360,
+            opacity: 0 
+          }}
+          animate={{ 
+            y: "-10%",
+            rotate: Math.random() * 720 - 360,
+            opacity: [0, 0.5, 0.5, 0],
+          }}
+          transition={{
+            duration: 8 + Math.random() * 4,
+            delay: i * 0.8,
+            repeat: Infinity,
+            ease: "linear"
+          }}
+          style={{ left: `${10 + i * 12}%` }}
+        >
+          {card}
+        </motion.div>
+      ))}
+    </div>
+  );
+};
+
 export function GameTypeSelector({
   isOpen,
   onClose,
@@ -189,6 +227,20 @@ export function GameTypeSelector({
 }: GameTypeSelectorProps) {
   const [hoveredGame, setHoveredGame] = useState<GameVariant | null>(null);
   const [showInfo, setShowInfo] = useState<GameVariant | null>(null);
+  const [selectedEffect, setSelectedEffect] = useState<GameVariant | null>(null);
+
+  // Selection sparkle effect
+  useEffect(() => {
+    if (selectedEffect) {
+      const timer = setTimeout(() => setSelectedEffect(null), 600);
+      return () => clearTimeout(timer);
+    }
+  }, [selectedEffect]);
+
+  const handleSelect = (gameId: GameVariant) => {
+    setSelectedEffect(gameId);
+    setTimeout(() => onSelect(gameId), 300);
+  };
 
   const getDifficultyLabel = (difficulty: string) => {
     switch (difficulty) {
@@ -205,18 +257,38 @@ export function GameTypeSelector({
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="glass-effect border-border max-w-4xl max-h-[90vh] overflow-y-auto">
-        <DialogHeader>
-          <DialogTitle className="text-2xl text-gold font-[family-name:var(--font-orbitron)] text-center">
-            בחר סוג משחק
-          </DialogTitle>
-          <DialogDescription className="text-center text-muted-foreground">
-            עד שסוגרים חלון זה (×, «ביטול» או «המשך לבחירת שולחן») — הלובי מאחוריו לא ניתן ללחיצה.
-            לשולחן חי מקומית חובה שרת Socket; ראו הסבר בלובי אחרי הסגירה.
-          </DialogDescription>
+      <DialogContent className="glass-effect border-border max-w-4xl max-h-[90vh] overflow-y-auto overflow-x-hidden">
+        {/* Floating background cards */}
+        <FloatingCards />
+        
+        <DialogHeader className="relative z-10">
+          <motion.div
+            initial={{ opacity: 0, y: -20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.5 }}
+          >
+            <DialogTitle className="text-2xl text-gold font-[family-name:var(--font-orbitron)] text-center flex items-center justify-center gap-3">
+              <motion.div
+                animate={{ rotate: [0, 10, -10, 0] }}
+                transition={{ duration: 2, repeat: Infinity }}
+              >
+                <Sparkles className="w-6 h-6 text-gold" />
+              </motion.div>
+              בחר סוג משחק
+              <motion.div
+                animate={{ rotate: [0, -10, 10, 0] }}
+                transition={{ duration: 2, repeat: Infinity, delay: 0.5 }}
+              >
+                <Sparkles className="w-6 h-6 text-gold" />
+              </motion.div>
+            </DialogTitle>
+            <DialogDescription className="text-center text-muted-foreground">
+              בחר את סגנון הפוקר המועדף עליך
+            </DialogDescription>
+          </motion.div>
         </DialogHeader>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 pt-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 pt-4 relative z-10">
           {gameTypes.map((game, index) => {
             const difficultyInfo = getDifficultyLabel(game.difficulty);
 
@@ -230,16 +302,65 @@ export function GameTypeSelector({
                 onMouseEnter={() => setHoveredGame(game.id)}
                 onMouseLeave={() => setHoveredGame(null)}
               >
-                <motion.button
-                  onClick={() => onSelect(game.id)}
-                  className={`w-full p-5 rounded-2xl glass-effect border transition-all duration-300 text-right ${
+                <motion.div
+                  onClick={() => handleSelect(game.id)}
+                  className={`w-full p-5 rounded-2xl glass-effect border transition-all duration-300 text-right relative overflow-hidden cursor-pointer ${
                     selectedGame === game.id
                       ? `${game.borderColor} ${game.bgGlow}`
                       : "border-border hover:border-gold/30"
                   }`}
-                  whileHover={{ scale: 1.02, y: -5 }}
-                  whileTap={{ scale: 0.98 }}
+                  whileHover={{ scale: 1.03, y: -6, rotateY: 3 }}
+                  whileTap={{ scale: 0.97 }}
+                  style={{ perspective: "1000px", transformStyle: "preserve-3d" }}
+                  role="button"
+                  tabIndex={0}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" || e.key === " ") {
+                      handleSelect(game.id);
+                    }
+                  }}
                 >
+                  {/* Selection sparkle effect */}
+                  <AnimatePresence>
+                    {selectedEffect === game.id && (
+                      <>
+                        {[...Array(8)].map((_, i) => (
+                          <motion.div
+                            key={i}
+                            className="absolute w-2 h-2 rounded-full bg-gold"
+                            initial={{ 
+                              x: "50%", 
+                              y: "50%", 
+                              scale: 0,
+                              opacity: 1 
+                            }}
+                            animate={{ 
+                              x: `${50 + (Math.random() - 0.5) * 150}%`,
+                              y: `${50 + (Math.random() - 0.5) * 150}%`,
+                              scale: [0, 1.5, 0],
+                              opacity: [1, 1, 0]
+                            }}
+                            transition={{ duration: 0.6, delay: i * 0.05 }}
+                          />
+                        ))}
+                      </>
+                    )}
+                  </AnimatePresence>
+                  
+                  {/* Animated hover gradient */}
+                  <motion.div
+                    className="absolute inset-0 opacity-0 group-hover:opacity-100"
+                    animate={hoveredGame === game.id ? {
+                      background: [
+                        "radial-gradient(circle at 0% 0%, rgba(212,175,55,0.1) 0%, transparent 50%)",
+                        "radial-gradient(circle at 100% 100%, rgba(212,175,55,0.1) 0%, transparent 50%)",
+                        "radial-gradient(circle at 0% 100%, rgba(212,175,55,0.1) 0%, transparent 50%)",
+                        "radial-gradient(circle at 100% 0%, rgba(212,175,55,0.1) 0%, transparent 50%)",
+                        "radial-gradient(circle at 0% 0%, rgba(212,175,55,0.1) 0%, transparent 50%)",
+                      ],
+                    } : {}}
+                    transition={{ duration: 4, repeat: Infinity }}
+                  />
                   {/* Badges */}
                   <div className="absolute top-3 left-3 flex gap-2">
                     {game.isPopular && (
@@ -274,16 +395,24 @@ export function GameTypeSelector({
                   </button>
 
                   {/* Game Icon & Name */}
-                  <div className="flex items-center gap-3 mb-3 mt-4">
+                  <div className="flex items-center gap-3 mb-3 mt-4 relative z-10">
                     <motion.div
-                      className={`w-12 h-12 rounded-xl ${game.bgGlow} border ${game.borderColor} flex items-center justify-center`}
+                      className={`w-12 h-12 rounded-xl ${game.bgGlow} border ${game.borderColor} flex items-center justify-center relative overflow-hidden`}
                       animate={
                         hoveredGame === game.id
-                          ? { rotate: [0, 5, -5, 0] }
+                          ? { rotate: [0, 8, -8, 5, -5, 0], scale: [1, 1.1, 1] }
                           : {}
                       }
-                      transition={{ duration: 0.5 }}
+                      transition={{ duration: 0.8 }}
                     >
+                      {/* Shimmer effect */}
+                      {hoveredGame === game.id && (
+                        <motion.div
+                          className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent"
+                          animate={{ x: ["-100%", "100%"] }}
+                          transition={{ duration: 1, repeat: Infinity, repeatDelay: 1 }}
+                        />
+                      )}
                       {game.icon}
                     </motion.div>
                     <div>
@@ -343,7 +472,7 @@ export function GameTypeSelector({
                       }}
                     />
                   )}
-                </motion.button>
+                </motion.div>
 
                 {/* Info Tooltip */}
                 <AnimatePresence>
@@ -390,7 +519,12 @@ export function GameTypeSelector({
         </div>
 
         {/* Action Buttons */}
-        <div className="flex gap-3 mt-6 pt-4 border-t border-border">
+        <motion.div 
+          className="flex gap-3 mt-6 pt-4 border-t border-border relative z-10"
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.3 }}
+        >
           <Button
             variant="outline"
             onClick={onClose}
@@ -398,15 +532,22 @@ export function GameTypeSelector({
           >
             ביטול
           </Button>
-          <Button
-            onClick={onClose}
-            disabled={!selectedGame}
-            className="flex-1 bg-emerald text-foreground hover:bg-emerald-light disabled:opacity-50"
-          >
-            <ChevronLeft className="w-4 h-4 ml-2" />
-            המשך לבחירת שולחן
-          </Button>
-        </div>
+          <motion.div className="flex-1" whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}>
+            <Button
+              onClick={onClose}
+              disabled={!selectedGame}
+              className="w-full bg-emerald text-foreground hover:bg-emerald-light disabled:opacity-50 relative overflow-hidden"
+            >
+              <motion.div
+                className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent"
+                animate={{ x: ["-100%", "100%"] }}
+                transition={{ duration: 2, repeat: Infinity, repeatDelay: 2 }}
+              />
+              <ChevronLeft className="w-4 h-4 ml-2 relative z-10" />
+              <span className="relative z-10">המשך לבחירת שולחן</span>
+            </Button>
+          </motion.div>
+        </motion.div>
       </DialogContent>
     </Dialog>
   );

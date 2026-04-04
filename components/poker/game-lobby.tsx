@@ -13,7 +13,11 @@ import {
   Club,
   Loader2,
   RefreshCw,
-  Gamepad2,
+  Flame,
+  Zap,
+  Crown,
+  Star,
+  TrendingUp,
 } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { getPokerSocketUrl } from "@/lib/poker/socket-url";
@@ -169,7 +173,14 @@ function LobbyRoomCard({
 
         <div className="relative z-[1] flex items-start justify-between mb-4">
           <div>
-            <h3 className="text-lg font-bold text-foreground mb-1">{table.name}</h3>
+            <div className="flex items-center gap-2 mb-1">
+              <h3 className="text-lg font-bold text-foreground">{table.name}</h3>
+              {table.players.current >= 4 && (
+                <motion.div animate={{ scale: [1, 1.2, 1] }} transition={{ duration: 1, repeat: Infinity }}>
+                  <TrendingUp className="w-3.5 h-3.5 text-orange-500" />
+                </motion.div>
+              )}
+            </div>
             <p className="text-xs text-muted-foreground font-mono truncate max-w-[200px]">
               {table.id}
             </p>
@@ -332,8 +343,16 @@ function LobbyRoomCard({
   );
 }
 
+const quickFilters = [
+  { id: "hot", label: "פופולרי", icon: Flame, color: "text-orange-500 bg-orange-500/10 border-orange-500/30" },
+  { id: "turbo", label: "טורבו", icon: Zap, color: "text-yellow-500 bg-yellow-500/10 border-yellow-500/30" },
+  { id: "vip", label: "VIP", icon: Crown, color: "text-gold bg-gold/10 border-gold/30" },
+  { id: "beginners", label: "מתחילים", icon: Star, color: "text-emerald bg-emerald/10 border-emerald/30" },
+] as const;
+
 export function GameLobby({ onJoinTable, onOpenGameSelector }: GameLobbyProps) {
   const [filter, setFilter] = useState<"all" | "holdem" | "omaha">("all");
+  const [quickFilter, setQuickFilter] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [tables, setTables] = useState<Table[]>([]);
   const [roomsLoading, setRoomsLoading] = useState(true);
@@ -387,6 +406,10 @@ export function GameLobby({ onJoinTable, onOpenGameSelector }: GameLobbyProps) {
     ) {
       return false;
     }
+    if (quickFilter === "hot" && table.players.current < 3) return false;
+    if (quickFilter === "turbo" && table.bigBlind < 10) return false;
+    if (quickFilter === "vip" && table.bigBlind < 10) return false;
+    if (quickFilter === "beginners" && table.bigBlind > 4) return false;
     return true;
   });
 
@@ -486,7 +509,7 @@ export function GameLobby({ onJoinTable, onOpenGameSelector }: GameLobbyProps) {
                 onClick={onOpenGameSelector}
                 className="border-emerald/40 text-emerald hover:bg-emerald/10"
               >
-                <Gamepad2 className="w-4 h-4 ml-2" />
+                <Flame className="w-4 h-4 ml-2" />
                 בחירת סוג משחק
               </Button>
             )}
@@ -505,6 +528,33 @@ export function GameLobby({ onJoinTable, onOpenGameSelector }: GameLobbyProps) {
               <span className="mr-2">רענן חדרים</span>
             </Button>
           </div>
+        </motion.div>
+
+        {/* Quick Filters */}
+        <motion.div
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.05 }}
+          className="flex gap-2 mb-4 overflow-x-auto pb-2 scrollbar-hide"
+        >
+          {quickFilters.map((qf) => {
+            const Icon = qf.icon;
+            const isActive = quickFilter === qf.id;
+            return (
+              <motion.button
+                key={qf.id}
+                onClick={() => setQuickFilter(isActive ? null : qf.id)}
+                className={`flex items-center gap-2 px-4 py-2 rounded-full border transition-all whitespace-nowrap text-sm font-medium ${
+                  isActive ? qf.color : "bg-muted/30 border-border text-muted-foreground hover:border-gold/30"
+                }`}
+                whileHover={{ scale: 1.02 }}
+                whileTap={{ scale: 0.98 }}
+              >
+                <Icon className="w-4 h-4" />
+                {qf.label}
+              </motion.button>
+            );
+          })}
         </motion.div>
 
         <motion.div
