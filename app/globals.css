@@ -140,9 +140,19 @@
 @layer base {
   * {
     @apply border-border outline-ring/50;
+    /* Remove blue flash on tap (Android Chrome) */
+    -webkit-tap-highlight-color: transparent;
   }
   body {
     @apply bg-background text-foreground;
+    /* Prevent pull-to-refresh / overscroll bounce interfering with the game */
+    overscroll-behavior: none;
+    /* Smooth momentum scrolling inside scrollable containers */
+    -webkit-overflow-scrolling: touch;
+  }
+  /* Remove 300ms tap delay on all interactive elements */
+  button, a, input, select, textarea, [role="button"] {
+    touch-action: manipulation;
   }
 }
 
@@ -211,6 +221,8 @@
 
 .glass-effect {
   background: rgba(20, 25, 35, 0.7);
+  /* -webkit- prefix for Samsung/OnePlus stock browsers */
+  -webkit-backdrop-filter: blur(20px);
   backdrop-filter: blur(20px);
   border: 1px solid rgba(255, 255, 255, 0.1);
 }

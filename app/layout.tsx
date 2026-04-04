@@ -58,9 +58,14 @@ export const viewport: Viewport = {
   ],
   width: 'device-width',
   initialScale: 1,
+  // Allow pinch-zoom disabled to prevent accidental zooming during gameplay
   maximumScale: 1,
   userScalable: false,
+  // Cover fills notch + Android gesture navigation bar properly
   viewportFit: 'cover',
+  // interactiveWidget: 'resizes-content' prevents the virtual keyboard from
+  // resizing the viewport on Android Chrome, keeping the action bar in place
+  interactiveWidget: 'resizes-content',
 }
 
 export default function RootLayout({

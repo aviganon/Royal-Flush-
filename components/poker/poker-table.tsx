@@ -36,7 +36,8 @@ const DealerCharacter = memo(function DealerCharacter() {
         <motion.div
           className="relative"
           animate={{ y: [0, -4, 0] }}
-          transition={{ duration: 4, repeat: Infinity, ease: "easeInOut" }}
+          transition={{ duration: 4, repeat: Infinity, ease: "easeInOut", willChange: "transform" } as object}
+          style={{ willChange: "transform" }}
         >
           {/* Outer glow ring */}
           <motion.div
@@ -288,7 +289,7 @@ const PlayingCard = memo(function PlayingCard({
       whileHover={size !== "sm" ? { y: -10, scale: 1.08, zIndex: 50 } : undefined}
       transition={{ delay: index * 0.12, duration: 0.55, type: "spring", stiffness: 100, damping: 18 }}
       className={`relative ${dims} rounded-xl transform-gpu cursor-default select-none shrink-0`}
-      style={{ perspective: "1200px", transformStyle: "preserve-3d" }}
+      style={{ perspective: "1200px", transformStyle: "preserve-3d", willChange: "transform" }}
     >
       {isHidden ? (
         /* ── Card back ── */
@@ -620,18 +621,18 @@ export function PokerTable({
       <div className="absolute inset-0">
         <div className="absolute inset-0 bg-gradient-to-b from-[#0a0a0f] via-[#0d1117] to-[#0a1628]" />
 
-        {/* Animated gradient orbs */}
+        {/* Animated gradient orbs — blur reduced for Android GPU */}
         <motion.div
-          className="absolute top-0 left-0 w-[700px] h-[700px] rounded-full opacity-25 pointer-events-none"
-          style={{ background: "radial-gradient(circle, rgba(16,185,129,0.45) 0%, transparent 70%)", filter: "blur(80px)" }}
-          animate={{ x: [-200, 80, -200], y: [-80, 180, -80] }}
-          transition={{ duration: 20, repeat: Infinity, ease: "easeInOut" }}
+          className="absolute top-0 left-0 w-[500px] h-[500px] rounded-full opacity-20 pointer-events-none"
+          style={{ background: "radial-gradient(circle, rgba(16,185,129,0.45) 0%, transparent 70%)", filter: "blur(40px)", willChange: "transform" }}
+          animate={{ x: [-150, 60, -150], y: [-60, 120, -60] }}
+          transition={{ duration: 22, repeat: Infinity, ease: "easeInOut" }}
         />
         <motion.div
-          className="absolute bottom-0 right-0 w-[550px] h-[550px] rounded-full opacity-18 pointer-events-none"
-          style={{ background: "radial-gradient(circle, rgba(212,175,55,0.45) 0%, transparent 70%)", filter: "blur(60px)" }}
-          animate={{ x: [80, -130, 80], y: [40, -80, 40] }}
-          transition={{ duration: 15, repeat: Infinity, ease: "easeInOut" }}
+          className="absolute bottom-0 right-0 w-[400px] h-[400px] rounded-full opacity-15 pointer-events-none"
+          style={{ background: "radial-gradient(circle, rgba(212,175,55,0.45) 0%, transparent 70%)", filter: "blur(30px)", willChange: "transform" }}
+          animate={{ x: [60, -100, 60], y: [30, -60, 30] }}
+          transition={{ duration: 18, repeat: Infinity, ease: "easeInOut" }}
         />
 
         {/* Subtle grid */}
@@ -640,34 +641,33 @@ export function PokerTable({
           style={{ backgroundImage: "linear-gradient(rgba(255,255,255,0.1) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.1) 1px, transparent 1px)", backgroundSize: "50px 50px" }}
         />
 
-        {/* Floating particles */}
-        {[...Array(24)].map((_, i) => (
+        {/* Floating particles — capped at 10 for Android GPU budget */}
+        {[...Array(10)].map((_, i) => (
           <motion.div
             key={i}
             className="absolute rounded-full pointer-events-none"
             style={{
               width: `${2 + (i % 3)}px`,
               height: `${2 + (i % 3)}px`,
-              left: `${(i * 4.3) % 100}%`,
-              top: `${(i * 7.1) % 100}%`,
+              left: `${(i * 10.3) % 100}%`,
+              top: `${(i * 9.1) % 100}%`,
               background: i % 3 === 0 ? "rgba(212,175,55,0.65)" : i % 3 === 1 ? "rgba(16,185,129,0.65)" : "rgba(255,255,255,0.4)",
+              willChange: "transform, opacity",
             }}
-            animate={{ y: [0, -28, 0], opacity: [0.2, 0.75, 0.2], scale: [1, 1.4, 1] }}
-            transition={{ duration: 3 + (i % 4), repeat: Infinity, delay: (i % 6) * 0.5, ease: "easeInOut" }}
+            animate={{ y: [0, -22, 0], opacity: [0.2, 0.7, 0.2] }}
+            transition={{ duration: 4 + (i % 3), repeat: Infinity, delay: i * 0.7, ease: "easeInOut" }}
           />
         ))}
 
-        {/* Floating card symbols (subtle) */}
+        {/* Floating card symbols — static on mobile, animated only on md+ */}
         {(["♠", "♥", "♦", "♣"] as const).map((suit, i) => (
-          <motion.span
+          <span
             key={i}
-            className={`absolute text-6xl font-bold opacity-[0.025] select-none pointer-events-none ${suit === "♥" || suit === "♦" ? "text-red-500" : "text-white"}`}
-            style={{ left: `${15 + i * 22}%`, top: `${20 + (i % 2) * 38}%` }}
-            animate={{ y: [0, -18, 0], rotate: [0, 8, 0], opacity: [0.02, 0.045, 0.02] }}
-            transition={{ duration: 8 + i * 2, repeat: Infinity, delay: i * 1.4 }}
+            className={`absolute text-6xl font-bold select-none pointer-events-none hidden md:block ${suit === "♥" || suit === "♦" ? "text-red-500" : "text-white"}`}
+            style={{ left: `${15 + i * 22}%`, top: `${20 + (i % 2) * 38}%`, opacity: 0.03 }}
           >
             {suit}
-          </motion.span>
+          </span>
         ))}
 
         {/* Light beams */}
@@ -791,7 +791,8 @@ export function PokerTable({
       )}
 
       {/* pb-40 leaves room for the fixed action bar so the bottom seat is never hidden */}
-      <div className="relative z-10 flex-1 flex items-center justify-center p-4 pb-40 min-h-[calc(100vh-180px)]">
+      {/* 100dvh = real visible height on Android Chrome (excludes address bar) */}
+      <div className="relative z-10 flex-1 flex items-center justify-center p-4 pb-40 min-h-[calc(100dvh-180px)]">
         <div className="relative w-full max-w-4xl aspect-[16/10]">
           <motion.div
             initial={{ scale: 0.8, opacity: 0 }}
@@ -1087,6 +1088,7 @@ export function PokerTable({
             <motion.button
               onClick={() => sendAction("fold")}
               disabled={!isMyTurn || state.handFinished}
+              style={{ touchAction: "manipulation" }}
               className={`relative flex-1 max-w-[120px] flex flex-col items-center justify-center gap-1 py-3 px-2 rounded-2xl font-bold text-sm transition-all select-none
                 ${isMyTurn && !state.handFinished
                   ? "bg-red-600/20 border-2 border-red-500/60 text-red-400 hover:bg-red-600/30 hover:border-red-400 cursor-pointer"
@@ -1104,6 +1106,7 @@ export function PokerTable({
               <motion.button
                 onClick={() => sendAction("check")}
                 disabled={!isMyTurn || state.handFinished}
+                style={{ touchAction: "manipulation" }}
                 className={`relative flex-1 max-w-[140px] flex flex-col items-center justify-center gap-1 py-3 px-2 rounded-2xl font-bold text-sm transition-all select-none
                   ${isMyTurn && !state.handFinished
                     ? "bg-blue-500/20 border-2 border-blue-400/60 text-blue-300 hover:bg-blue-500/30 hover:border-blue-300 cursor-pointer"
@@ -1119,6 +1122,7 @@ export function PokerTable({
               <motion.button
                 onClick={() => sendAction("call")}
                 disabled={!isMyTurn || state.handFinished}
+                style={{ touchAction: "manipulation" }}
                 className={`relative flex-1 max-w-[140px] flex flex-col items-center justify-center gap-1 py-3 px-2 rounded-2xl font-bold text-sm transition-all select-none
                   ${isMyTurn && !state.handFinished
                     ? "bg-gold/15 border-2 border-gold/60 text-gold hover:bg-gold/25 hover:border-gold cursor-pointer"
@@ -1142,6 +1146,7 @@ export function PokerTable({
                 betAmount[0] < raiseRange.min ||
                 raiseRange.min > raiseRange.max
               }
+              style={{ touchAction: "manipulation" }}
               className={`relative flex-1 max-w-[160px] flex flex-col items-center justify-center gap-1 py-3 px-2 rounded-2xl font-bold text-sm transition-all select-none
                 ${isMyTurn && !state.handFinished && raiseRange.min <= raiseRange.max
                   ? "bg-emerald/20 border-2 border-emerald/70 text-emerald hover:bg-emerald/30 hover:border-emerald cursor-pointer"
@@ -1169,6 +1174,7 @@ export function PokerTable({
                 setShowAllIn(true);
               }}
               disabled={!isMyTurn || state.handFinished || raiseRange.min > raiseRange.max}
+              style={{ touchAction: "manipulation" }}
               className={`relative flex-1 max-w-[120px] flex flex-col items-center justify-center gap-1 py-3 px-2 rounded-2xl font-bold text-sm transition-all select-none overflow-hidden
                 ${isMyTurn && !state.handFinished && raiseRange.min <= raiseRange.max
                   ? "bg-purple-600/20 border-2 border-purple-500/70 text-purple-300 hover:bg-purple-600/35 hover:border-purple-400 cursor-pointer"
