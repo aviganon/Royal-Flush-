@@ -63,9 +63,12 @@ export async function PATCH(
 
   const txRef = db.collection("users").doc(uid).collection("transactions").doc();
   if (typeof chips === "number" || typeof chipsAdjust === "number") {
+    const snap = await db.collection("users").doc(uid).get();
+    const prevChips = typeof snap.data()?.chips === "number" ? (snap.data()!.chips as number) : 0;
+    const finalChips = typeof chips === "number" ? chips : prevChips + (chipsAdjust ?? 0);
     await txRef.set({
       type: "admin_adjustment",
-      amount: typeof chips === "number" ? chips : (chipsAdjust ?? 0),
+      amount: typeof chipsAdjust === "number" ? chipsAdjust : finalChips - prevChips,
       adminUid: admin.uid,
       createdAt: FieldValue.serverTimestamp(),
     });

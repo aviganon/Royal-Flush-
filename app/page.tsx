@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { toast } from "sonner";
 import { Navigation } from "@/components/poker/navigation";
@@ -52,6 +52,16 @@ export default function PokerApp() {
   const [tableSocketGameType, setTableSocketGameType] = useState<"holdem" | "omaha">("holdem");
 
   const txRows = useWalletTransactions(user?.uid);
+
+  const particlesRef = useRef(
+    [...Array(12)].map(() => ({
+      x: `${Math.random() * 100}%`,
+      y1: `${Math.random() * 100}%`,
+      y2: `${Math.random() * 100}%`,
+      duration: 5 + Math.random() * 5,
+      delay: Math.random() * 3,
+    })),
+  );
 
   useEffect(() => {
     if (!user || typeof window === "undefined") return;
@@ -305,22 +315,19 @@ export default function PokerApp() {
 
       {/* Floating gold particles */}
       <div className="fixed inset-0 pointer-events-none overflow-hidden">
-        {[...Array(12)].map((_, i) => (
+        {particlesRef.current.map((p, i) => (
           <motion.div
             key={i}
             className="absolute w-1 h-1 rounded-full bg-gold/20"
-            initial={{
-              x: `${Math.random() * 100}%`,
-              y: `${Math.random() * 100}%`,
-            }}
+            initial={{ x: p.x, y: p.y1 }}
             animate={{
-              y: [`${Math.random() * 100}%`, `${Math.random() * 100}%`],
+              y: [p.y1, p.y2],
               opacity: [0.1, 0.3, 0.1],
             }}
             transition={{
-              duration: 5 + Math.random() * 5,
+              duration: p.duration,
               repeat: Infinity,
-              delay: Math.random() * 3,
+              delay: p.delay,
               ease: "easeInOut",
             }}
           />
